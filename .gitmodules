@@ -4,3 +4,9 @@
 [submodule "src/px4_msgs"]
 	path = src/px4_msgs
 	url = https://github.com/PX4/px4_msgs.git
+[submodule "src/px4_uam_sim"]
+	path = src/px4_uam_sim
+	url = git@github.com:BioMorphic-Intelligence-Lab/px4_uam_sim.git
+[submodule "src/feetech_ros2_driver"]
+	path = src/feetech_ros2_driver
+	url = git@github.com:BioMorphic-Intelligence-Lab/feetech_ros2_driver.git

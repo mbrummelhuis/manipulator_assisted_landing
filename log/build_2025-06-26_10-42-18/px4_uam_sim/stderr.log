@@ -1,0 +1,46 @@
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:[m[K In constructor ‘[01m[KPIDState::[01;32m[KPIDState[m[K()[m[K’:
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:30:16:[m[K [01;35m[Kwarning: [m[K‘[01m[KPIDState::Kd[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   30 |         double [01;35m[KKd[m[K;
+      |                [01;35m[K^~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:29:16:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kdouble PIDState::Ki[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   29 |         double [01;35m[KKi[m[K;
+      |                [01;35m[K^~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:32:9:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   32 |         [01;35m[KPIDState[m[K() : prev_t(-1), error(0.0), error_int(0.0), error_dot(0.0), Kp(0.2), Kd(0.0), Ki(0.1) { }
+      |         [01;35m[K^~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:[m[K In constructor ‘[01m[KUAMState::[01;32m[KUAMState[m[K()[m[K’:
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:45:16:[m[K [01;35m[Kwarning: [m[K‘[01m[KUAMState::q_lr[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   45 |         double [01;35m[Kq_lr[m[K;
+      |                [01;35m[K^~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:38:25:[m[K [01;35m[Kwarning: [m[K  ‘[01m[KEigen::Vector3d UAMState::vel_NED_est[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   38 |         Eigen::Vector3d [01;35m[Kvel_NED_est[m[K;
+      |                         [01;35m[K^~~~~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:47:9:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   47 |         [01;35m[KUAMState[m[K() : prev_t(-1), pos(Eigen::Vector3d(0.0,0.0,0.0)), rpy(Eigen::Vector3d(0.0,0.0,0.0)), pos_NED(Eigen::Vector3d(0.0,0.0,0.0)), rpy_NED(Eigen::Vector3d(0.0,0.0,0.0)), q_al(0.0), q_ar(0.0), q_ll(0.0), q_lr(0.0), vel_NED_est(Eigen::Vector3d(0.0,0.0,0.0)) { }
+      |         [01;35m[K^~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:[m[K In member function ‘[01m[Kvoid UAMOffboardCommander::[01;32m[Kvicon_callback[m[K(nav_msgs::msg::Odometry_<std::allocator<void> >::SharedPtr)[m[K’:
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:175:10:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kdt[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  175 |   double [01;35m[Kdt[m[K;
+      |          [01;35m[K^~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:[m[K In member function ‘[01m[Kvoid UAMOffboardCommander::[01;32m[Kpublish_trajectory_setpoint[m[K()[m[K’:
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:328:43:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::x[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  328 |           msg.position = {[01;35m[K(this->UAM_CMD).x[m[K, (this->UAM_CMD).y, (this->UAM_CMD).z};
+      |                           [01;35m[K~~~~~~~~~~~~~~~~^[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:328:62:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::y[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  328 |           msg.position = {(this->UAM_CMD).x, [01;35m[K(this->UAM_CMD).y[m[K, (this->UAM_CMD).z};
+      |                                              [01;35m[K~~~~~~~~~~~~~~~~^[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:328:81:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::z[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  328 |           msg.position = {(this->UAM_CMD).x, (this->UAM_CMD).y, [01;35m[K(this->UAM_CMD).z[m[K};
+      |                                                                 [01;35m[K~~~~~~~~~~~~~~~~^[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:332:46:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K(((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::vx - vx_extra)[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  332 |           msg.velocity = {[01;35m[K(this->UAM_CMD).vx - vx_extra[m[K, (this->UAM_CMD).vy - vy_extra, (this->UAM_CMD).vz - vz_extra};
+      |                           [01;35m[K~~~~~~~~~~~~~~~~~~~^~~~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:332:77:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K(((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::vy - vy_extra)[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  332 |           msg.velocity = {(this->UAM_CMD).vx - vx_extra, [01;35m[K(this->UAM_CMD).vy - vy_extra[m[K, (this->UAM_CMD).vz - vz_extra};
+      |                                                          [01;35m[K~~~~~~~~~~~~~~~~~~~^~~~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:332:108:[m[K [01;35m[Kwarning: [m[Knarrowing conversion of ‘[01m[K(((UAMOffboardCommander*)this)->UAMOffboardCommander::UAM_CMD.SetpointState::vz - vz_extra)[m[K’ from ‘[01m[Kdouble[m[K’ to ‘[01m[Kfloat[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wnarrowing-Wnarrowing]8;;[m[K]
+  332 |           msg.velocity = {(this->UAM_CMD).vx - vx_extra, (this->UAM_CMD).vy - vy_extra, [01;35m[K(this->UAM_CMD).vz - vz_extra[m[K};
+      |                                                                                         [01;35m[K~~~~~~~~~~~~~~~~~~~^~~~~~~~~~[m[K
+[01m[K/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/src/uam_handler.cpp:326:16:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Ktime_since_start[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  326 |         double [01;35m[Ktime_since_start[m[K = seconds - start_time;
+      |                [01;35m[K^~~~~~~~~~~~~~~~[m[K

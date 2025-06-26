@@ -1,0 +1,59 @@
+[0.010s] Invoking command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_cpp_lib -DCMAKE_INSTALL_PREFIX=/home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib
+[0.125s] -- The C compiler identification is GNU 13.3.0
+[0.206s] -- The CXX compiler identification is GNU 13.3.0
+[0.227s] -- Detecting C compiler ABI info
+[0.342s] -- Detecting C compiler ABI info - done
+[0.349s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.349s] -- Detecting C compile features
+[0.349s] -- Detecting C compile features - done
+[0.359s] -- Detecting CXX compiler ABI info
+[0.477s] -- Detecting CXX compiler ABI info - done
+[0.484s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.484s] -- Detecting CXX compile features
+[0.484s] -- Detecting CXX compile features - done
+[0.490s] -- Found ament_cmake: 2.5.4 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.621s] -- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+[0.781s] -- Configuring done (0.8s)
+[0.784s] -- Generating done (0.0s)
+[0.785s] -- Build files have been written to: /home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib
+[0.790s] Invoked command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_cpp_lib -DCMAKE_INSTALL_PREFIX=/home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib
+[0.791s] Invoking command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib -- -j20 -l20
+[0.838s] [ 50%] [32mBuilding CXX object CMakeFiles/feetech_lib.dir/src/feetech_lib.cpp.o[0m
+[1.789s] [01m[K/home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_cpp_lib/src/feetech_lib.cpp:[m[K In constructor ‘[01m[KFeetechServo::[01;32m[KFeetechServo[m[K(std::string, const long int&, double, const std::vector<unsigned char>&, bool, bool)[m[K’:
+[1.789s] [01m[K/home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_cpp_lib/src/feetech_lib.cpp:82:10:[m[K [01;35m[Kwarning: [m[Kvariable ‘[01m[Ksuccess[m[K’ set but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-but-set-variable-Wunused-but-set-variable]8;;[m[K]
+[1.789s]    82 |     bool [01;35m[Ksuccess[m[K=false;
+[1.789s]       |          [01;35m[K^~~~~~~[m[K
+[3.162s] [100%] [32m[1mLinking CXX static library libfeetech_lib.a[0m
+[3.216s] [100%] Built target feetech_lib
+[3.225s] Invoked command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib -- -j20 -l20
+[3.236s] Invoking command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib
+[3.243s] -- Install configuration: ""
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/library_path.sh
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/library_path.dsv
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/include/feetech_cpp_lib
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/include/feetech_cpp_lib/feetech_lib.hpp
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/include/feetech_cpp_lib/boost_timer.hpp
+[3.244s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/include/feetech_cpp_lib/serial_logger.hpp
+[3.245s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/lib/libfeetech_lib.a
+[3.246s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/ament_index/resource_index/package_run_dependencies/feetech_cpp_lib
+[3.246s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/ament_index/resource_index/parent_prefix_path/feetech_cpp_lib
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/ament_prefix_path.sh
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/ament_prefix_path.dsv
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/path.sh
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/environment/path.dsv
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/local_setup.bash
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/local_setup.sh
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/local_setup.zsh
+[3.247s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/local_setup.dsv
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/package.dsv
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/ament_index/resource_index/packages/feetech_cpp_lib
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/feetech_libExport.cmake
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/feetech_libExport-noconfig.cmake
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/ament_cmake_export_targets-extras.cmake
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/ament_cmake_export_include_directories-extras.cmake
+[3.248s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/ament_cmake_export_dependencies-extras.cmake
+[3.249s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/ament_cmake_export_libraries-extras.cmake
+[3.249s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/feetech_cpp_libConfig.cmake
+[3.249s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/cmake/feetech_cpp_libConfig-version.cmake
+[3.249s] -- Installing: /home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/share/feetech_cpp_lib/package.xml
+[3.250s] Invoked command in '/home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/martijn/manipulator_assisted_landing/build/feetech_cpp_lib

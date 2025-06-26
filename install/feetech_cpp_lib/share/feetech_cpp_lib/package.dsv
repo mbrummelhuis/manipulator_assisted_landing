@@ -1,0 +1,6 @@
+source;share/feetech_cpp_lib/hook/cmake_prefix_path.dsv
+source;share/feetech_cpp_lib/hook/cmake_prefix_path.sh
+source;share/feetech_cpp_lib/local_setup.bash
+source;share/feetech_cpp_lib/local_setup.dsv
+source;share/feetech_cpp_lib/local_setup.sh
+source;share/feetech_cpp_lib/local_setup.zsh
