@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/martijn/manipulator_assisted_landing/install/px4_msgs/include/**",
+        "/home/martijn/manipulator_assisted_landing/install/feetech_ros2/include/**",
+        "/home/martijn/manipulator_assisted_landing/install/feetech_cpp_lib/include/**",
+        "/opt/ros/jazzy/include/**",
+        "/home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_cpp_lib/include/**",
+        "/home/martijn/manipulator_assisted_landing/src/feetech_ros2_driver/feetech_ros2/include/**",
+        "/home/martijn/manipulator_assisted_landing/src/px4_uam_sim/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

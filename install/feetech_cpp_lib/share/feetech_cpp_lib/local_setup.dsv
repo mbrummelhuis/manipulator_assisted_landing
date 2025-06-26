@@ -1,3 +1,0 @@
-source;share/feetech_cpp_lib/environment/ament_prefix_path.sh
-source;share/feetech_cpp_lib/environment/library_path.sh
-source;share/feetech_cpp_lib/environment/path.sh
