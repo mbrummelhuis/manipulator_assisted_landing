@@ -30,7 +30,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'frequency': major_frequency},
-            {'position_clip': 3.0}
+            {'position_clip': 3.0},
+            {'takeoff_altitude': -0.4},
+            {'probing_direction': [0., 0., 1.]},
+            {'probing_speed': 0.1}
         ],
         arguments=['--ros-args', '--log-level', 'info']
     )

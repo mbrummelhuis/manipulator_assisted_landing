@@ -5,6 +5,9 @@ import datetime
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 from numpy import pi, clip
+import numpy as np
+
+from scipy.optimize import least_squares
 
 from std_msgs.msg import Int32
 
@@ -17,6 +20,9 @@ from px4_msgs.msg import TrajectorySetpoint
 from px4_msgs.msg import OffboardControlMode
 from px4_msgs.msg import VehicleCommand
 
+L_1 = 0.110
+L_2 = 0.317
+L_3 = 0.330
 
 class MissionDirectorPy(Node):
     def __init__(self):
@@ -25,6 +31,9 @@ class MissionDirectorPy(Node):
         # Parameters
         self.declare_parameter('frequency', 25.0)
         self.declare_parameter('position_clip', 0.0)
+        self.declare_parameter('takeoff_altitude', 0.4)
+        self.declare_parameter('probing_speed', 0.1)
+        self.declare_parameter('probing_direction', [0., 0., 1.])
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -51,16 +60,25 @@ class MissionDirectorPy(Node):
         self.publisher_md_state = self.create_publisher(Int32, '/md/state', 10)
 
         # Set initial data
-        self.FSM_state = 'wait_for_servo_driver'
+        self.FSM_state = 'entrypoint'
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
+        self.takeoff_altitude = self.get_parameter('takeoff_altitude').get_parameter_value().double_value
+        self.armed = False
+        self.offboard = False
+        self.killed = False
+        self.x_setpoint = 0.0
+        self.y_setpoint = 0.0
         self.arm_1_positions = [0.0, 0.0, 0.0]
         self.arm_1_velocities = [0.0, 0.0, 0.0]
         self.arm_1_effort = [0.0, 0.0, 0.0]
         self.arm_2_positions = [0.0, 0.0, 0.0]
         self.arm_2_velocities = [0.0, 0.0, 0.0]
         self.arm_2_effort = [0.0, 0.0, 0.0]
+
+        self.probing_direction = self.get_parameter('probing_direction').get_parameter_value().double_array_value
+        self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
 
         self.vehicle_local_position = VehicleLocalPosition()
         self.state_start_time = datetime.datetime.now()
@@ -93,31 +111,97 @@ class MissionDirectorPy(Node):
                     self.transition_state('move_arm_landed')
 
             case('move_arm_landed'):
-                self.move_arms_to_position(
+                self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.85,
                     -pi/2, 0.0, 1.85)
                 self.publishMDState(1)
-                 # Wait 5 seconds until the arm is in position
-                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state(new_state='extend_arm')
-                    
-            case('extend_arm'):
-                self.move_arms_to_position(
-                    pi/2, 0.0, 0.0,
-                    -pi/2, 0.0, 0.0)
-                self.publishMDState(2)
-                 # Wait 5 seconds until the arm is in position
-                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state(new_state='move_arm_landed2')
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
-            case('move_arm_landed2'):
-                self.move_arms_to_position(
+                 # Wait 5 seconds until the arm is in position
+                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
+                    self.transition_state(new_state='sim_arm_offboard')
+                    
+            case('sim_arm_offboard'):
+                if not self.offboard and self.counter%self.frequency==0:
+                    #self.get_logger().info("Sending offboard command")
+                    self.engage_offboard_mode()
+                    self.counter = 0
+                if not self.armed and self.offboard and self.counter%self.frequency==0:
+                    #self.get_logger().info("Sending arm command")
+                    self.armVehicle()
+                    self.counter = 0
+
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
+                self.publishMDState(3)
+                if self.armed and self.offboard:
+                    self.transition_state('takeoff')
+
+            case('takeoff'): # Takeoff - wait for takeoff altitude
+                self.publishMDState(4)
+                self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.85,
                     -pi/2, 0.0, 1.85)
-                self.publishMDState(3)
-                 # Wait 5 seconds until the arm is in position
+                # get current vehicle altitude
+                current_altitude = self.vehicle_local_position.z
+
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                if self.first_state_loop:
+                    self.get_logger().info(f'Vehicle local position heading: {self.vehicle_local_position.heading}')
+                    self.get_logger().info(f'Takeoff altitude: {self.takeoff_altitude}')
+                    self.first_state_loop = False
+                
+                # check if vehicle has reached takeoff altitude
+                if abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
+                    self.transition_state('arms_sensing_configuration')
+            
+            case('arms_sensing_configuration'):
+                self.publishMDState(5)
+                self.move_arms_to_joint_position(
+                    2*pi/3, 0.0, pi/3,
+                    -2*pi/3, 0.0, -pi/3)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
+                if (datetime.datetime.now() - self.state_start_time).seconds > 30 or self.input_state == 1:
+                    self.transition_state('move_arms_for_landing')
+
+            case('probing'):
+                self.publishMDState(6)
+                # Get current position
+                current_ee_1 = self.position_forward_kinematics(*self.arm_1_positions)
+                current_ee_2 = self.position_forward_kinematics(*self.arm_2_positions)
+
+                # Propagate current position by probing velocity
+                target_ee_1 = current_ee_1 + self.probing_direction*self.probing_speed*self.timer_period
+                target_ee_2 = current_ee_2 + self.probing_direction*self.probing_speed*self.timer_period
+
+                # Invert kinematics on target positions and move joints
+                res = self.move_ee_to_body_position(*target_ee_1, *target_ee_2)
+
+                # State switch logic
+                if res == -1 or self.contact:
+                    self.transition_state()
+
+            case('move_arms_for_landing'):
+                self.publishMDState(8)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.85,
+                    -pi/2, 0.0, 1.85)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state(new_state='wait_for_arm_offboard')
+                    self.transition_state('land')
+            
+            case('land'):
+                self.publishMDState(9)
+                self.land()
+                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                    self.transition_state('land')
 
             case('landed'):
                 self.publishMDState(10)
@@ -140,7 +224,58 @@ class MissionDirectorPy(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo_state.publish(msg)
 
-    def move_arms_to_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
+    def position_forward_kinematics(self, q_1, q_2, q_3):
+        x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
+        y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
+        z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
+        return [x_BS, y_BS, z_BS]
+
+    def move_ee_to_body_position(self, x1, y1, z1, x2, y2, z2):
+        joints_1 = self.manipulator_inverse_kinematics(x1, y1, z1, self.arm_1_positions[0], self.arm_1_positions[1], self.arm_1_positions[2])
+        joints_2 = self.manipulator_inverse_kinematics(x2, y2, z2, self.arm_2_positions[0], self.arm_2_positions[1], self.arm_2_positions[2])
+        if len(joints_1)==3 and len(joints_2)==3:
+            self.move_arms_to_joint_position(*joints_1, *joints_2)
+            return 0
+        else:
+            return -1
+
+    # Do inverse kinematics on the manipulator using a least squares optimization
+    def manipulator_inverse_kinematics(self, x_target, y_target, z_target, x_current, y_current, z_current):
+        
+        def ik_residuals(q):
+            q1, q2, q3 = q
+
+            x = -L_2*np.sin(q2) - L_3*np.sin(q2)*np.cos(q3)
+            y = L_1*np.sin(q1) + L_2*np.sin(q1)*np.cos(q2) + \
+                L_3*np.sin(q1)*np.cos(q2)*np.cos(q3) + \
+                L_3*np.sin(q3)*np.cos(q1)
+            z = -L_1*np.cos(q1) - L_2*np.cos(q1)*np.cos(q2) + \
+                L_3*np.sin(q1)*np.sin(q3) - \
+                L_3*np.cos(q1)*np.cos(q2)*np.cos(q3)
+
+            return [x - x_target, y - y_target, z - z_target]
+
+        initial_guess = [x_current, y_current, z_current]
+
+        lower_bounds = [-np.pi, -np.pi/8., -np.pi/2.]
+        upper_bounds = [ np.pi,  np.pi/8.,  np.pi/2.]
+
+        result = least_squares(
+            ik_residuals,
+            initial_guess,
+            bounds=(lower_bounds, upper_bounds)
+        )
+
+        # Output result
+        if result.success:
+            q1, q2, q3 = result.x
+            print("Joint solution (q1, q2, q3):", result.x)
+            return [q1, q2, q3]
+        else:
+            print("Optimization failed:", result.message)
+            return [-1]
+
+    def move_arms_to_joint_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         self.publish_arms_position_commands(q1_1, q2_1, q3_1, q1_2, q2_2, q3_2)
 
     def publishMDState(self, state):
@@ -152,7 +287,7 @@ class MissionDirectorPy(Node):
         msg = OffboardControlMode()
         msg.timestamp = int(self.get_clock().now().nanoseconds/1000)
         msg.position = True
-        msg.velocity = True
+        msg.velocity = False
         msg.acceleration = False
         msg.attitude = False
         msg.body_rate = False
@@ -177,24 +312,24 @@ class MissionDirectorPy(Node):
         """Send an arm command to the vehicle."""
         self.publish_vehicle_command(
             VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM, param1=1.0)
-        self.get_logger().info('Arm command sent')
+        #self.get_logger().info('Arm command sent')
 
     def disarmVehicle(self):
         """Send a disarm command to the vehicle."""
         self.publish_vehicle_command(
             VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM, param1=0.0)
-        self.get_logger().info('Disarm command sent')
+        #self.get_logger().info('Disarm command sent')
 
     def engage_offboard_mode(self):
         """Switch to offboard mode."""
         self.publish_vehicle_command(
             VehicleCommand.VEHICLE_CMD_DO_SET_MODE, param1=1.0, param2=6.0)
-        self.get_logger().info("Switching to offboard mode")
+        #self.get_logger().info("Switching to offboard mode")
 
     def land(self):
         """Switch to land mode."""
         self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND)
-        self.get_logger().info("Switching to land mode")
+        #self.get_logger().info("Switching to land mode")
 
     def publish_vehicle_command(self, command, **params) -> None:
         """Publish a vehicle command."""
