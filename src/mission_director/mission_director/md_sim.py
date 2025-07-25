@@ -77,7 +77,8 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = [0.0, 0.0, 0.0]
         self.arm_2_effort = [0.0, 0.0, 0.0]
 
-        self.probing_direction = self.get_parameter('probing_direction').get_parameter_value().double_array_value
+        self.probing_direction = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
+        self.get_logger().info(f'{self.probing_direction}, type: {type(self.probing_direction)}')
         self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
 
         self.vehicle_local_position = VehicleLocalPosition()
@@ -166,11 +167,13 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
-                if (datetime.datetime.now() - self.state_start_time).seconds > 30 or self.input_state == 1:
-                    self.transition_state('move_arms_for_landing')
+                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                    self.transition_state('probing')
 
             case('probing'):
                 self.publishMDState(6)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 # Get current position
                 current_ee_1 = self.position_forward_kinematics(*self.arm_1_positions)
                 current_ee_2 = self.position_forward_kinematics(*self.arm_2_positions)
@@ -178,13 +181,16 @@ class MissionDirectorPy(Node):
                 # Propagate current position by probing velocity
                 target_ee_1 = current_ee_1 + self.probing_direction*self.probing_speed*self.timer_period
                 target_ee_2 = current_ee_2 + self.probing_direction*self.probing_speed*self.timer_period
+                self.get_logger().info(f'Current positions: {current_ee_1} \t {current_ee_2}')
+                self.get_logger().info(f'Target positions: {target_ee_1} \t {target_ee_2}')
+                self.get_logger().info(f'Difference: {current_ee_1-target_ee_1} \t {current_ee_2-target_ee_2}')
 
                 # Invert kinematics on target positions and move joints
                 res = self.move_ee_to_body_position(*target_ee_1, *target_ee_2)
 
                 # State switch logic
-                if res == -1 or self.contact:
-                    self.transition_state()
+                if res == -1: # Add contact here
+                    self.transition_state('move_arms_for_landing')
 
             case('move_arms_for_landing'):
                 self.publishMDState(8)
@@ -255,24 +261,27 @@ class MissionDirectorPy(Node):
 
             return [x - x_target, y - y_target, z - z_target]
 
-        initial_guess = [x_current, y_current, z_current]
+        x0 = [x_current, y_current, z_current]
 
         lower_bounds = [-np.pi, -np.pi/8., -np.pi/2.]
         upper_bounds = [ np.pi,  np.pi/8.,  np.pi/2.]
 
+        x0 = np.maximum(x0, lower_bounds)
+        x0 = np.minimum(x0, upper_bounds)
+
         result = least_squares(
             ik_residuals,
-            initial_guess,
+            x0,
             bounds=(lower_bounds, upper_bounds)
         )
 
         # Output result
         if result.success:
             q1, q2, q3 = result.x
-            print("Joint solution (q1, q2, q3):", result.x)
+            self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
             return [q1, q2, q3]
         else:
-            print("Optimization failed:", result.message)
+            self.get_logger().info(f"Optimization failed: {result.message}")
             return [-1]
 
     def move_arms_to_joint_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
