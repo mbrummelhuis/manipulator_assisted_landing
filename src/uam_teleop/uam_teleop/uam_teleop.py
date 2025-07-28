@@ -120,18 +120,31 @@ class DroneManipulatorTeleop(Node):
         if 'e' in self.pressed_keys: # Yaw right
             self.yaw -= self.step_yaw
 
-        if 'u' in self.pressed_keys:
+        if 'r' in self.pressed_keys:
             self.servos[0] -= self.step_servo
-        if 'j' in self.pressed_keys:
+        if 'f' in self.pressed_keys:
             self.servos[0] += self.step_servo
-        if 'i' in self.pressed_keys:
+        if 't' in self.pressed_keys:
             self.servos[1] -= self.step_servo
-        if 'k' in self.pressed_keys:
+        if 'g' in self.pressed_keys:
             self.servos[1] += self.step_servo
-        if 'o' in self.pressed_keys:
+        if 'y' in self.pressed_keys:
             self.servos[2] -= self.step_servo
-        if 'l' in self.pressed_keys:
+        if 'h' in self.pressed_keys:
             self.servos[2] += self.step_servo
+
+        if 'u' in self.pressed_keys:
+            self.servos[3] -= self.step_servo
+        if 'j' in self.pressed_keys:
+            self.servos[3] += self.step_servo
+        if 'i' in self.pressed_keys:
+            self.servos[4] -= self.step_servo
+        if 'k' in self.pressed_keys:
+            self.servos[4] += self.step_servo
+        if 'o' in self.pressed_keys:
+            self.servos[5] -= self.step_servo
+        if 'l' in self.pressed_keys:
+            self.servos[5] += self.step_servo
 
         if 'm' in self.pressed_keys:
             self.armVehicle()
