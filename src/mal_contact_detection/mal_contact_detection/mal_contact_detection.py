@@ -16,12 +16,17 @@ class ContactDetection(Node):
         super().__init__('contact_detection')
 
         self.declare_parameter('difference_threshold', 1.)
+        self.declare_parameter('acc_threshold', 1.0)
         self.contact_threshold = self.get_parameter('difference_threshold').get_parameter_value().double_value
         self.previous_current = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
 
         self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, 10)
+
+        self.previous_accelero_magnitude = 0.0
+        self.contact_acc = False
+        self.acc_threshold = self.get_parameter('acc_threshold').get_parameter_value().double_value
 
         self.contact_point_1 = None
         self.contact_point_2 = None
@@ -47,8 +52,17 @@ class ContactDetection(Node):
             self.contact_point_2 = ee_2
 
     def sensor_callback(self, msg):
+        # start condition
+        if self.previous_accelero_magnitude == 0.0:
+            self.previous_accelero_magnitude = np.linalg.norm(np.array(msg.accelerometer_m_s2))
+            return
+
         # filter linear acceleration to detect contact
-        pass
+        accelero_magnitude = np.linalg.norm(np.array(msg.accelerometer_m_s2))
+        accelero_difference = accelero_magnitude - self.previous_accelero_magnitude
+        if accelero_difference > self.acc_threshold:
+            self.contact_acc = True
+            return
 
     def position_forward_kinematics(self, q_1, q_2, q_3):
         x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)

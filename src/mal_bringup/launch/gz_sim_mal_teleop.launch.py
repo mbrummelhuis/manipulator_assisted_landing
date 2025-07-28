@@ -23,35 +23,33 @@ def generate_launch_description():
     ld.add_action(gz_sim)
     
     #Controller nodes
-    mission_director = Node(
-        package='mission_director',
-        executable='mission_director_sim',
-        name='md_sim_mal',
-        output='screen',
-        parameters=[
-            {'frequency': major_frequency},
-            {'position_clip': 3.0},
-            {'takeoff_altitude': -0.5},
-            {'probing_direction': [0., 0., 1.]},
-            {'probing_speed': 0.01}
-        ],
-        arguments=['--ros-args', '--log-level', 'info']
-    )
-    ld.add_action(mission_director)
+    # mal_teleop = Node(
+    #     package='mal_teleop',
+    #     executable='mal_teleop',
+    #     name='mal_teleop',
+    #     output='screen',
+    #     parameters=[
+    #         {'drone_increment_m': 0.1},
+    #         {'servo_increment_deg': 10.},
+    #         {'position_clip': 3.5}
+    #     ],
+    #     arguments=['--ros-args', '--log-level', 'info']
+    # )
+    # ld.add_action(mal_teleop)
 
-    contact_detection = Node(
-        package='mal_contact_detecion',
-        executable='mal_contact_detection',
-        name='cd_sim_mal',
-        output='screen',
-        parameters=[
-            {'frequency': 25.},
-            {'difference_threshold': 1.0},
-            {'acc_threshold': 10.0}
-        ],
-        arguments=['--ros-args', '--log-level', 'info']
-    )
-    ld.add_action(contact_detection)
+    # contact_detection = Node(
+    #     package='mal_contact_detecion',
+    #     executable='mal_contact_detection',
+    #     name='cd_sim_mal',
+    #     output='screen',
+    #     parameters=[
+    #         {'frequency': 25.},
+    #         {'difference_threshold': 1.0},
+    #         {'acc_threshold': 10.0}
+    #     ],
+    #     arguments=['--ros-args', '--log-level', 'info']
+    # )
+    # ld.add_action(contact_detection)
 
     sim_remapper = Node(
         package='px4_uam_sim',
