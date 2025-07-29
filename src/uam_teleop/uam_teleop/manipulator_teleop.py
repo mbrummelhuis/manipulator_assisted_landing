@@ -12,8 +12,7 @@ class DroneManipulatorTeleop(Node):
     def __init__(self):
         super().__init__('drone_manipulator_teleop')
 
-        self.declare_parameter('servo_increment_deg', 10.0)
-        self.declare_parameter('position_clip', 0.0)
+        self.declare_parameter('servo_increment_deg', 5.0)
         self.servo_control_speed = self.get_parameter('servo_increment_deg').get_parameter_value().double_value
 
         # Publishers
@@ -23,29 +22,46 @@ class DroneManipulatorTeleop(Node):
         self.servo_sub = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
 
         self.pressed_keys = set()
-        self.servos = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
+        self.servos = None
+
+        # Map
+        self.servo_keys = [
+            ('r', 'f'),
+            ('t', 'g'),
+            ('y', 'h'),
+            ('u', 'j'),
+            ('i', 'k'),
+            ('o', 'l'),
+        ]
 
         # Step sizes
         self.step_servo = math.radians(self.servo_control_speed)
 
+        self.get_logger().info("Welcome to servo keyboard teleop!")
         self.get_logger().info("Arm 1: R/F=q1, T/G=q2, Y/H=q3")
         self.get_logger().info("Arm 2: U/J=q1, I/K=q2, O/L=q3")
         self.get_logger().info("X=exit")
 
         # Start keyboard listener in a separate thread
-        self.running = True
         listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
         listener.start()
 
         # Periodic publisher timer (20 Hz)
+        self.counter = 0
         self.create_timer(0.05, self.publish_setpoints)
 
-    def publish_setpoints(self):
-        self.processKeys()
+        self.running = True
 
+    def publish_setpoints(self):
         # Servo setpoints
-        if not np.linalg.norm(self.servos)==0.0:
-            self.publishManipulatorSetpoints(*self.servos)
+        if self.servos is not None:
+            self.publishManipulatorSetpoints(self.servos)
+        else:
+            if self.counter%100==0:
+                self.get_logger().info("Waiting for servo feedback...")
+                self.counter+=1
+        
+        self.processKeys()
 
     def on_press(self, key):
         try:
@@ -55,64 +71,49 @@ class DroneManipulatorTeleop(Node):
 
     def on_release(self, key):
         try:
-            self.pressed_keys.discard(key.char)
+            # Handle normal character keys
+            k = key.char.lower()
+            for idx, (dec_key, inc_key) in enumerate(self.servo_keys):
+                if self.servos is not None and idx < len(self.servos) and k in (dec_key, inc_key):
+                    self.get_logger().info(
+                        f"Servo {idx} setpoint = {self.servos[idx]:.2f} [rad]"
+                    )
+            self.pressed_keys.discard(k)
+
         except AttributeError:
-            pass                
+            # Handle special keys (ESC, arrows, etc.)
+            if key == keyboard.Key.esc:
+                self.get_logger().info("ESC pressed → exiting teleop...")
+                self.running = False
 
     def joint_states_callback(self, msg):
         # If the servos have not been initialized, i.e. are still 0, set to position
-        if np.linalg.norm(self.servos)<5.0: # TODO make this something more sensible
+        if self.servos is None: # TODO make this something more sensible
             self.servos = msg.position
             self.get_logger().info(f'Set initial servo positions as {self.servos}')
 
     def processKeys(self):
-        """Runs in background thread, updates desired state"""      
-        if 'x' in self.pressed_keys:
-            self.get_logger().info("Exiting teleop...")
-            self.running = False
-            # TODO: Add setting servos to suitable landing state
-            self.land()
-            rclpy.shutdown()
-            return
+        for idx, (dec_key, inc_key) in enumerate(self.servo_keys):
+            if self.servos is not None and idx < len(self.servos):  # only if servo exists
+                if dec_key in self.pressed_keys:
+                    self.servos[idx] -= self.step_servo
+                if inc_key in self.pressed_keys:
+                    self.servos[idx] += self.step_servo
 
-        if 'r' in self.pressed_keys:
-            self.servos[0] -= self.step_servo
-        if 'f' in self.pressed_keys:
-            self.servos[0] += self.step_servo
-        if 't' in self.pressed_keys:
-            self.servos[1] -= self.step_servo
-        if 'g' in self.pressed_keys:
-            self.servos[1] += self.step_servo
-        if 'y' in self.pressed_keys:
-            self.servos[2] -= self.step_servo
-        if 'h' in self.pressed_keys:
-            self.servos[2] += self.step_servo
-
-        if 'u' in self.pressed_keys:
-            self.servos[3] -= self.step_servo
-        if 'j' in self.pressed_keys:
-            self.servos[3] += self.step_servo
-        if 'i' in self.pressed_keys:
-            self.servos[4] -= self.step_servo
-        if 'k' in self.pressed_keys:
-            self.servos[4] += self.step_servo
-        if 'o' in self.pressed_keys:
-            self.servos[5] -= self.step_servo
-        if 'l' in self.pressed_keys:
-            self.servos[5] += self.step_servo
-
-    def publishManipulatorSetpoints(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
+    def publishManipulatorSetpoints(self, joint_positions:list):
         msg = JointState()
-        msg.position = [q1_1, q2_1, q3_1, q1_2, q2_2, q3_2]
-        msg.velocity = [0., 0., 0., 0., 0., 0.]
-        msg.name = ['q1_1', 'q2_1', 'q3_1', 'q1_2', 'q2_2', 'q3_2']
+        msg.position = joint_positions
+        msg.velocity = [0. for  i in range(len(joint_positions))]
+        msg.name = ['q'+str(i+1) for i in range(len(joint_positions))]
         msg.header.stamp = self.get_clock().now().to_msg()
         self.servo_pub.publish(msg)
 
 def main():
     rclpy.init()
     node = DroneManipulatorTeleop()
-    rclpy.spin(node)
+    while rclpy.ok() and node.running:
+        rclpy.spin_once(node, timeout_sec=0.1)
+
     node.destroy_node()
     rclpy.shutdown()
 
