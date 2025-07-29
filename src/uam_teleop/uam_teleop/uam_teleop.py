@@ -46,9 +46,10 @@ class DroneManipulatorTeleop(Node):
         self.step_yaw = math.radians(50*self.drone_control_speed)  # 5 deg increments
         self.step_servo = math.radians(self.servo_control_speed)
 
-        self.get_logger().info("Teleop ready: WASD=XY, c/z=altitude, Q/E=yaw, U/J=q1, I/K=q2, O/L=q3 M=arm X=exit")
-
-
+        self.get_logger().info("Teleop ready: WASD=XY, c/z=altitude, Q/E=yaw  M=arm X=exit")
+        self.get_logger().info("Arm 1: R/F=q1, T/G=q2, Y/H=q3")
+        self.get_logger().info("Arm 2: U/J=q1, I/K=q2, O/L=q3")
+        
         # Start keyboard listener in a separate thread
         self.running = True
         listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)

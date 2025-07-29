@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'uam_teleop=uam_teleop.uam_teleop:main'
+            'uam_teleop=uam_teleop.uam_teleop:main',
+            'man_teleop=uam_teleop.manipulator_teleop:main'
         ],
     },
 )
