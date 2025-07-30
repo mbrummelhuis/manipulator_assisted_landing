@@ -39,19 +39,19 @@ def generate_launch_description():
     )
     ld.add_action(mission_director)
 
-    contact_detection = Node(
-        package='mal_contact_detecion',
-        executable='mal_contact_detection',
-        name='cd_sim_mal',
-        output='screen',
-        parameters=[
-            {'frequency': 25.},
-            {'difference_threshold': 1.0},
-            {'acc_threshold': 10.0}
-        ],
-        arguments=['--ros-args', '--log-level', 'info']
-    )
-    ld.add_action(contact_detection)
+    # contact_detection = Node(
+    #     package='mal_contact_detection',
+    #     executable='mal_contact_detection',
+    #     name='cd_sim_mal',
+    #     output='screen',
+    #     parameters=[
+    #         {'frequency': 25.},
+    #         {'difference_threshold': 1.0},
+    #         {'acc_threshold': 10.0}
+    #     ],
+    #     arguments=['--ros-args', '--log-level', 'info']
+    # )
+    # ld.add_action(contact_detection)
 
     sim_remapper = Node(
         package='px4_uam_sim',
