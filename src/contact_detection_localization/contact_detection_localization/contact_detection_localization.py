@@ -3,15 +3,13 @@ from rclpy.node import Node
 
 import numpy as np
 
-from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined
-
 
 L_1 = 0.110
 L_2 = 0.317
 L_3 = 0.330
 
-class ContactDetection(Node):
+class ContactDetectionLocalization(Node):
     def __init__(self):
         super().__init__('contact_detection')
 
@@ -101,7 +99,7 @@ class ContactDetection(Node):
 
 def main():
     rclpy.init(args=None)
-    mal = ContactDetection()
+    mal = ContactDetectionLocalization()
     rclpy.spin(mal)
 
     # Destroy the node explicitly

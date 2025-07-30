@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'mal_contact_detection'
+package_name = 'contact_detection_localization'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mal_contact_detection=mal_contact_detection.mal_contact_detection:main'
+            'contact_detection_localization=contact_detection_localization.contact_detection_localization:main'
         ],
     },
 )
