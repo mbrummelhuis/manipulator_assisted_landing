@@ -72,11 +72,55 @@ class ContactDetectionLocalization(Node):
         
         return Delta_F, Delta_M
 
-    def computeLineOfAction(self):
-        pass
+    def computeLineOfAction(self, Delta_F, Delta_M, r_CoM):
+        """
+        Compute the line of action of an external contact force given
+        force and moment residuals (Delta_F, Delta_M).
+        
+        Args:
+            Delta_F : (3,) np.array
+                External force residual in body frame
+            Delta_M : (3,) np.array
+                External moment residual in body frame (about r_CoM)
+            r_CoM : (3,) np.array
+                Center of mass location in body frame (usually [0,0,0])
+                
+        Returns:
+            r0 : (3,) np.array
+                A particular point on the line of action
+            direction : (3,) np.array
+                Unit direction vector of the line (parallel to Delta_F)
+            valid : bool
+                Whether the line is well-defined (False if |Delta_F| is tiny)
+        """
+        F_norm = np.linalg.norm(Delta_F)
+        if F_norm < 1e-6:
+            # Force too small to define a reliable line of action
+            return None, None, False
+
+        direction = Delta_F / F_norm
+
+        # Particular point on the line closest to r_CoM
+        r0 = r_CoM + np.cross(Delta_M, Delta_F) / (F_norm**2)
+        
+        return r0, direction, True
     
-    def selectContactPoint(self):
-        pass
+    def selectContactPoint(self, r0, direction_vector):
+        best_point = None
+        best_distance = np.inf
+
+        for r_i in self.contact_point_candidates:
+            diff = r_i - r0
+            dist = np.linalg.norm(np.cross(diff, direction_vector))  # perpendicular distance
+            if dist < best_distance:
+                best_distance = dist
+                best_point = r_i
+
+        if best_distance < self.contact_point_proximity_threshold:
+            return best_point, best_distance
+        else:
+            return None, best_distance
+
 
     def sensor_callback(self, msg):
         # start condition
