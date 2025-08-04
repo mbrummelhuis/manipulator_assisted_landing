@@ -268,8 +268,8 @@ class MissionDirectorPy(Node):
             pos_err = np.linalg.norm(position - target_position)
 
             error = pos_err**2
-            #regularization = 0.0001 * np.linalg.norm(state - current_state)
-            return error #+ regularization
+            regularization = 0.0001 * np.linalg.norm(state - current_state)
+            return error + regularization
 
         x0 = current_joint_positions
 

@@ -129,6 +129,18 @@ class MissionDirectorPy(Node):
                 if (datetime.datetime.now() - self.state_start_time).seconds > 15 or self.input_state == 1:
                     self.transition_state(new_state='wait_for_arm_offboard')
                     
+                if (datetime.datetime.now() - self.state_start_time).seconds > 15 or self.input_state == 1:
+                    self.transition_state(new_state='wait_for_arm_offboard')
+
+            case('arms_pre_sensing_configuration_landed'):
+                self.publishMDState(1)
+                self.move_arms_to_joint_position(
+                    pi/3, 0.0, 1.2,
+                    -pi/3, 0.0, -1.2)
+
+                if (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                    self.transition_state('wait_for_arm_offboard')
+
             case('wait_for_arm_offboard'):
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.6,
@@ -161,13 +173,13 @@ class MissionDirectorPy(Node):
                 if not self.offboard:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('arms_sensing_configuration')
+                    self.transition_state('hover_in_place')
             
             case('hover_in_place'):
                 self.publishMDState(5)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.8,
-                    -pi/2, 0.0, 1.8)
+                    pi/2, 0.0, -1.3,
+                    -pi/2, 0.0, 1.3)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -180,8 +192,8 @@ class MissionDirectorPy(Node):
             case('arms_pre_sensing_configuration'):
                 self.publishMDState(6)
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.5,
-                    -pi/3, 0.0, -1.5)
+                    pi/3, 0.0, 1.2,
+                    -pi/3, 0.0, -1.2)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -194,9 +206,9 @@ class MissionDirectorPy(Node):
             case('arms_sensing_configuration'):
                 self.publishMDState(7)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint+0.5, -1.3, self.vehicle_local_position.heading)
                 self.move_arms_to_bodyxyz_position(*[0.0, 0.5, 0.0], *[0.0, -0.5, 0.0])
-                
+
                 # State transitions
                 if not self.offboard:
                     self.transition_state('emergency')
@@ -208,7 +220,7 @@ class MissionDirectorPy(Node):
             case('probing'):
                 self.publishMDState(8)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint+0.9, -1.3, self.vehicle_local_position.heading)
 
                 # Propagate current position by probing velocity
                 target_ee_1 = self.previous_ee_1 + self.probing_direction*self.probing_speed*self.timer_period
@@ -233,7 +245,7 @@ class MissionDirectorPy(Node):
                     pi/2, 0.0, -1.6,
                     -pi/2, 0.0, 1.6)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint+0.3, self.y_setpoint+0.3, self.takeoff_altitude-0.5, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -1.6, self.vehicle_local_position.heading)
 
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
                     self.transition_state('land')

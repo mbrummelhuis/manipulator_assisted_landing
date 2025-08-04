@@ -11,7 +11,7 @@ Launch simulation with one arm.
 
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
-logging = False
+logging = True
 major_frequency = 25.
 
 def generate_launch_description():
@@ -38,7 +38,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 2.5},
-            {'takeoff_altitude': -0.7},
+            {'takeoff_altitude': -1.5},
             {'probing_speed': 0.05},
             {'probing_direction': [0., 0., 1.]}
         ],
@@ -50,8 +50,8 @@ def generate_launch_description():
     # ROSBAG logging
     rosbag_record = []
     if logging:
-        rosbag_name = 'ros2bag_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        rosbag_path = f'/home/orangepi/manipulator_assisted_landing/data/rosbags/{rosbag_name}'
+        rosbag_name = 'ros2bag_mal_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_path = f'/ros2/manipulator_assisted_landing/data/rosbags/{rosbag_name}'
         rosbag_record.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'], 
             output='screen', 
