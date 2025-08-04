@@ -114,7 +114,7 @@ class MissionDirectorPy(Node):
                     self.transition_state(new_state='wait_for_servo_driver')
 
             case('wait_for_servo_driver'):
-                if (datetime.datetime.now() - self.state_start_time).seconds > 2 or self.input_state == 1:
+                if (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
                     self.transition_state('move_arm_landed')
 
             case('move_arm_landed'):
@@ -126,13 +126,13 @@ class MissionDirectorPy(Node):
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
                  # Wait 5 seconds until the arm is in position
-                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state(new_state='sim_arm_offboard')
+                if (datetime.datetime.now() - self.state_start_time).seconds > 15 or self.input_state == 1:
+                    self.transition_state(new_state='wait_for_arm_offboard')
                     
             case('wait_for_arm_offboard'):
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.8
-                    -pi/2, 0.0, 1.8)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 self.publishOffboardPositionMode()
                 self.publishMDState(3)
                 if self.armed and not self.offboard:
@@ -145,8 +145,8 @@ class MissionDirectorPy(Node):
             case('takeoff'): # Takeoff - wait for takeoff altitude
                 self.publishMDState(4)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
+                    pi/2, 0.0, -1.8,
+                    -pi/2, 0.0, 1.8)
                 # get current vehicle altitude
                 current_altitude = self.vehicle_local_position.z
 
@@ -165,6 +165,9 @@ class MissionDirectorPy(Node):
             
             case('hover_in_place'):
                 self.publishMDState(5)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.8,
+                    -pi/2, 0.0, 1.8)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -172,10 +175,24 @@ class MissionDirectorPy(Node):
                 if not self.offboard:
                     self.transition_state('emergency')
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 60 or self.input_state == 1:
-                    self.transition_state('arms_sensing_configuration')
-                
-            case('arms_sensing_configuration'):
+                    self.transition_state('arms_pre_sensing_configuration')
+
+            case('arms_pre_sensing_configuration'):
                 self.publishMDState(6)
+                self.move_arms_to_joint_position(
+                    pi/3, 0.0, 1.5,
+                    -pi/3, 0.0, -1.5)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
+                # State transitions
+                if not self.offboard:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                    self.transition_state('arms_sensing_configuration')
+
+            case('arms_sensing_configuration'):
+                self.publishMDState(7)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_bodyxyz_position(*[0.0, 0.5, 0.0], *[0.0, -0.5, 0.0])
@@ -189,7 +206,7 @@ class MissionDirectorPy(Node):
                     self.previous_ee_2 = np.array([0.0, -0.5, 0.0])
 
             case('probing'):
-                self.publishMDState(7)
+                self.publishMDState(8)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -211,12 +228,12 @@ class MissionDirectorPy(Node):
                     self.transition_state('move_arms_for_landing')
 
             case('move_arms_for_landing'):
-                self.publishMDState(8)
+                self.publishMDState(9)
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.6,
                     -pi/2, 0.0, 1.6)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint+0.3, self.y_setpoint+0.3, self.takeoff_altitude-0.5, self.vehicle_local_position.heading)
 
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
                     self.transition_state('land')
@@ -340,7 +357,13 @@ class MissionDirectorPy(Node):
             return current_joint_positions
 
     def move_arms_to_joint_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
-        self.publish_arms_position_commands(q1_1, q2_1, q3_1, q1_2, q2_2, q3_2)
+        q1_1_clipped = clip(q1_1, -pi, pi)
+        q2_1_clipped = clip(q2_1, -pi/8., pi/8.)
+        q3_1_clipped = clip(q3_1, -1.85, 1.85)
+        q1_2_clipped = clip(q1_2, -pi, pi)
+        q2_2_clipped = clip(q2_2, -pi/8., pi/8.)
+        q3_2_clipped = clip(q3_2, -1.85, 1.85)
+        self.publish_arms_position_commands(q1_1_clipped, q2_1_clipped, q3_1_clipped, q1_2_clipped, q2_2_clipped, q3_2_clipped)
 
     def publishMDState(self, state):
         msg = Int32()
