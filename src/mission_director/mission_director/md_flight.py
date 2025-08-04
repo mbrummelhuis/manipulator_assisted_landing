@@ -26,7 +26,7 @@ L_3 = 0.330
 
 class MissionDirectorPy(Node):
     def __init__(self):
-        super().__init__('md_sim')
+        super().__init__('md_flight')
 
         # Parameters
         self.declare_parameter('frequency', 25.0)
@@ -119,8 +119,8 @@ class MissionDirectorPy(Node):
 
             case('move_arm_landed'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.6,
-                    -pi/3, 0.0, -1.6)
+                    pi/2, 0.0, 1.6,
+                    -pi/2, 0.0, -1.6)
                 self.publishMDState(1)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
@@ -129,28 +129,24 @@ class MissionDirectorPy(Node):
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
                     self.transition_state(new_state='sim_arm_offboard')
                     
-            case('sim_arm_offboard'):
-                if not self.offboard and self.counter%self.frequency==0:
-                    #self.get_logger().info("Sending offboard command")
-                    self.engage_offboard_mode()
-                    self.counter = 0
-                if not self.armed and self.offboard and self.counter%self.frequency==0:
-                    #self.get_logger().info("Sending arm command")
-                    self.armVehicle()
-                    self.counter = 0
-
+            case('wait_for_arm_offboard'):
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.8
+                    -pi/2, 0.0, 1.8)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
-
                 self.publishMDState(3)
-                if self.armed and self.offboard:
+                if self.armed and not self.offboard:
+                    self.get_logger().info('Armed but not offboard -- waiting')
+                elif not self.armed and self.offboard:
+                    self.get_logger().info('Not armed but offboard -- waiting')
+                elif self.armed and self.offboard:
                     self.transition_state('takeoff')
 
             case('takeoff'): # Takeoff - wait for takeoff altitude
                 self.publishMDState(4)
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.6,
-                    -pi/3, 0.0, -1.6)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 # get current vehicle altitude
                 current_altitude = self.vehicle_local_position.z
 
@@ -162,15 +158,21 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
                 
                 # check if vehicle has reached takeoff altitude
-                if abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
+                if not self.offboard:
+                    self.transition_state('emergency')
+                elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
                     self.transition_state('arms_sensing_configuration')
-            
+                
             case('arms_sensing_configuration'):
                 self.publishMDState(5)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
-                self.move_ee_to_body_position(*[0.0, 0.5, 0.0], *[0.0, -0.5, 0.0])
-                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                self.move_arms_to_bodyxyz_position(*[0.0, 0.5, 0.0], *[0.0, -0.5, 0.0])
+                
+                # State transitions
+                if not self.offboard:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('probing')
                     self.previous_ee_1 = np.array([0.0, 0.5, 0.0])
                     self.previous_ee_2 = np.array([0.0, -0.5, 0.0])
@@ -188,7 +190,11 @@ class MissionDirectorPy(Node):
                 self.previous_ee_2 = target_ee_2
 
                 # Invert kinematics on target positions and move joints
-                res = self.move_ee_to_body_position(*target_ee_1, *target_ee_2)
+                res = self.move_arms_to_bodyxyz_position(*target_ee_1, *target_ee_2)
+
+                # State transitions
+                if not self.offboard:
+                    self.transition_state('emergency')
 
                 if np.linalg.norm(target_ee_1) > self.workspace_radius:
                     self.transition_state('move_arms_for_landing')
@@ -196,8 +202,8 @@ class MissionDirectorPy(Node):
             case('move_arms_for_landing'):
                 self.publishMDState(8)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.85,
-                    -pi/2, 0.0, 1.85)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -208,16 +214,26 @@ class MissionDirectorPy(Node):
                 self.publishMDState(9)
                 self.land()
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('landed')
+                    self.transition_state('land')
 
             case('landed'):
                 self.publishMDState(10)
                 self.get_logger().info('Done')
                 self.disarmVehicle()
 
+            case('emergency'):
+                self.move_arms_to_joint_position(
+                    1.578, 0.0, -1.85,
+                    -1.578, 0.0, 1.85)
+                self.publishMDState(-1)
+                if self.counter% (2*self.frequency) == 0: # Publish message every 2 seconds
+                    self.get_logger().warn("Emergency state - no offboard mode")
+                    self.counter = 0
+                self.counter +=1
+
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
-                self.transition_state('land')
+                self.transition_state('emergency')
 
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()
@@ -241,7 +257,7 @@ class MissionDirectorPy(Node):
         z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
         return [x_BS, y_BS, z_BS]
 
-    def move_ee_to_body_position(self, x1_target, y1_target, z1_target, x2_target, y2_target, z2_target):
+    def move_arms_to_bodyxyz_position(self, x1_target, y1_target, z1_target, x2_target, y2_target, z2_target):
         # self.get_logger().info(f'------ ARM 1 -------')
         joints_1 = self.manipulator_inverse_kinematics(x1_target, y1_target, z1_target, self.arm_1_positions)
         # self.get_logger().info(f'------ ARM 2 -------')
@@ -301,10 +317,9 @@ class MissionDirectorPy(Node):
             if error > 0.0001:
                 self.get_logger().info(f"Ik failed with error {error}")
             else:
-                #self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
-                pass
+                self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
             q1, q2, q3 = result.x
-            # self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
+            self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
             return np.array([q1, q2, q3])
         
         else:

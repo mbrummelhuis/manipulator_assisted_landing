@@ -30,24 +30,25 @@ def generate_launch_description():
     )
     ld.add_action(servo_driver)
 
-    # Keyboard teleop
-    # keyboard_teleop = Node(
-    #     package='uam_teleop',
-    #     executable='man_teleop',
-    #     name='keyboard_teleop',
-    #     output='screen',
-    #     parameters=[
-    #         {'servo_increment_deg': 3.0},
-    #     ],
-    #     arguments=["--ros-args", "--log-level", "info"]
-    #     )
-    # ld.add_action(keyboard_teleop)
+    # Mission director
+    mission_director = Node(
+        package='mission_director',
+        executable='mission_director_flight',
+        name='mission_director_flight',
+        output='screen',
+        parameters=[
+            {},
+        ],
+        arguments=["--ros-args", "--log-level", "info"] # Log level info
+
+    )
+    ld.add_action(mission_director)
 
     # ROSBAG logging
     rosbag_record = []
     if logging:
-        rosbag_name = 'ros2bag_sim_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        rosbag_path = f'/home/martijn/aerial_tactile_servoing/data/rosbags/{rosbag_name}'
+        rosbag_name = 'ros2bag_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_path = f'/home/orangepi/manipulator_assisted_landing/data/rosbags/{rosbag_name}'
         rosbag_record.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'], 
             output='screen', 

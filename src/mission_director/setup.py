@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mission_director_sim=mission_director.md_sim:main'
+            'mission_director_sim=mission_director.md_sim:main',
+            'mission_director_flight=mission_director.md_flight:main'
         ],
     },
 )
