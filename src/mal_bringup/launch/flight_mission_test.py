@@ -19,7 +19,7 @@ def generate_launch_description():
     ld = LaunchDescription()
     
     #Servo driver
-    param_file = os.path.join(get_package_share_directory('mal_bringup'), 'config', 'feetech_ros2_one_arm.yaml')
+    param_file = os.path.join(get_package_share_directory('mal_bringup'), 'config', 'feetech_ros2_two_arms.yaml')
     servo_driver = Node(
         package="feetech_ros2",
         executable="feetech_ros2_interface",
@@ -37,7 +37,11 @@ def generate_launch_description():
         name='mission_director_flight',
         output='screen',
         parameters=[
-            {},
+            {'frequency': major_frequency},
+            {'position_clip': 2.5},
+            {'takeoff_altitude': -0.7},
+            {'probing_speed': 0.05},
+            {'probing_direction': [0., 0., 1.]}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 

@@ -31,9 +31,9 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 3.0},
-            {'takeoff_altitude': -0.5},
+            {'takeoff_altitude': -0.7},
             {'probing_direction': [0., 0., 1.]},
-            {'probing_speed': 0.01}
+            {'probing_speed': 0.1}
         ],
         arguments=['--ros-args', '--log-level', 'info']
     )

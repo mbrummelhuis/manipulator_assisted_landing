@@ -31,7 +31,7 @@ class MissionDirectorPy(Node):
         # Parameters
         self.declare_parameter('frequency', 25.0)
         self.declare_parameter('position_clip', 0.0)
-        self.declare_parameter('takeoff_altitude', 0.4)
+        self.declare_parameter('takeoff_altitude', 1.5)
         self.declare_parameter('probing_speed', 0.1)
         self.declare_parameter('probing_direction', [0., 0., 1.])
 
@@ -119,8 +119,8 @@ class MissionDirectorPy(Node):
 
             case('move_arm_landed'):
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, 1.6,
-                    -pi/2, 0.0, -1.6)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 self.publishMDState(1)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
@@ -162,9 +162,20 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
                     self.transition_state('arms_sensing_configuration')
+            
+            case('hover_in_place'):
+                self.publishMDState(5)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
+                # State transitions
+                if not self.offboard:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 60 or self.input_state == 1:
+                    self.transition_state('arms_sensing_configuration')
                 
             case('arms_sensing_configuration'):
-                self.publishMDState(5)
+                self.publishMDState(6)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_bodyxyz_position(*[0.0, 0.5, 0.0], *[0.0, -0.5, 0.0])
@@ -178,7 +189,7 @@ class MissionDirectorPy(Node):
                     self.previous_ee_2 = np.array([0.0, -0.5, 0.0])
 
             case('probing'):
-                self.publishMDState(6)
+                self.publishMDState(7)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
@@ -317,9 +328,10 @@ class MissionDirectorPy(Node):
             if error > 0.0001:
                 self.get_logger().info(f"Ik failed with error {error}")
             else:
-                self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
+                #self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
+                pass
             q1, q2, q3 = result.x
-            self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
+            #self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
             return np.array([q1, q2, q3])
         
         else:
