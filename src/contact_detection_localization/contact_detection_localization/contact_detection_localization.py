@@ -17,6 +17,7 @@ class ContactDetectionLocalization(Node):
 
         self.declare_parameter('effort_threshold', 1.0)
         self.declare_parameter('acc_threshold', 1.0)
+        self.declare_parameter('number_actuators', 6)
 
         #self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, 10)
         
@@ -29,6 +30,7 @@ class ContactDetectionLocalization(Node):
         self.contact_acc = False
         self.effort_threshold = self.get_parameter('effort_threshold').get_parameter_value().double_value
         self.acc_threshold = self.get_parameter('acc_threshold').get_parameter_value().double_value
+        self.actuator_number = self.get_parameter('number_actuators').get_parameter_value().integer_value
 
         self.contact_point_1 = None
         self.contact_point_2 = None
@@ -43,13 +45,26 @@ class ContactDetectionLocalization(Node):
             return
         
         # For each joint, check if the effort is above the threshold
-        for i in range(len(6)):
+        
+        for i in range(self.actuator_number):
             self.effort_diff[i] = self.joint_state.effort[i] - msg.effort[i]
+
             if abs(self.effort_diff[i]) > self.effort_threshold and i < 3:
                 self.get_logger().info(f'Contact detected on arm 1! Effort diff {self.effort_diff[i]}')
+                contact_msg = Int32()
+                contact_msg.data = 1
+                self.contact_publisher.publish(contact_msg)
             elif abs(self.effort_diff[i]) > self.effort_threshold and i >= 3:
                 self.get_logger().info(f'Contact detected on arm 2! Effort diff {self.effort_diff[i]}')
-            
+                contact_msg = Int32()
+                contact_msg.data = 2
+                self.contact_publisher.publish(contact_msg)
+            else:
+                contact_msg = Int32()
+                contact_msg.data = 0
+                self.contact_publisher.publish(contact_msg)
+        self.joint_state = msg              
+        #self.get_logger().info(f'Effort diffs: {self.effort_diff[0]:.2f} \t {self.effort_diff[1]:.2f} \t {self.effort_diff[2]:.2f} \t|\t {self.effort_diff[3]:.2f} \t {self.effort_diff[4]:.2f} \t {self.effort_diff[5]:.2f}')
         return
 
 
