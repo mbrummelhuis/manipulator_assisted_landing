@@ -12,9 +12,9 @@
     servos:
       ids: [11, 32, 13, 1, 2, 3] #, 2, 3, 4, 5, 6, 7, 8]
       operating_modes: [4, 4, 4, 4, 4, 4] # Velocity mode 2, continuous position mode 4
-      homing_modes: [0, 0, 0, 0, 0, 0] #, 0, 0, 0, 0, 0, 0, 0]
+      homing_modes: [1, 1, 1, 1, 1, 1] #
       directions: [-1, -1, -1, 1, 1, -1] #,
-      max_speeds: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8] # rad/s
+      max_speeds: [0.3, 0.3, 0.3, 0.3, 0.3, 0.3] # rad/s
       max_currents: [100., 100., 100., 100., 100., 100.] #, 100., 100., 100., 100., 100., 100., 100.]
       gear_ratios: [4.0, 1.0, 2.0, 4.0, 1.0, 2.0]
       start_offsets: [1.75, 0.0, -1.82, -1.75, 0.0, 1.82] # rad
