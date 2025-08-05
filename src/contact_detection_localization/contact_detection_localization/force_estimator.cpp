@@ -21,6 +21,9 @@ using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
 
+#define MOTOR_COEFFICIENT 19.4679 // Thrust N/unit of total motor signal
+
+
 struct UAMState{
 	Eigen::Vector3d vel_enu;
 	Eigen::Vector3d vel_ned;
@@ -94,7 +97,7 @@ void UAMEstimator::timer_callback()
     return;
   }
 
-  // Rotate the force by Rz pi/2 and Rx -pi (why?)
+  // NED to ENU rotation matrix
   Eigen::Matrix3d R = Rz(M_PI/2.0) * Rx(-M_PI);
   Eigen::Vector3d force_w = R * UAM_STATE.force_est;
   geometry_msgs::msg::Vector3 force_msg;
@@ -104,6 +107,7 @@ void UAMEstimator::timer_callback()
   force_est_publisher_->publish(force_msg);
 }
 
+// Calculate expected velocities based on actuator action
 void UAMEstimator::actuators_callback(const px4_msgs::msg::ActuatorMotors::SharedPtr msg)
 {
   // Don't do anything if the message is incorrect
@@ -161,7 +165,7 @@ void UAMEstimator::actuators_callback(const px4_msgs::msg::ActuatorMotors::Share
   double a_tot = UAM_STATE.actuators(0)+UAM_STATE.actuators(1)+UAM_STATE.actuators(2)+UAM_STATE.actuators(3);
   UAM_STATE.a_tot = 0.7*UAM_STATE.a_tot + 0.3*a_tot; // EWMA filter for smoothness
 
-  double T = 7.242*UAM_STATE.a_tot; // Put here some drone constant (T is thrust accleration? and a_tot the cumulative normalized motor input)
+  double T = MOTOR_COEFFICIENT*UAM_STATE.a_tot; // Put here some drone constant (T is thrust accleration? and a_tot the cumulative normalized motor input)
   Eigen::Matrix3d R = Rz(UAM_STATE.rpy_ned(2))*Ry(UAM_STATE.rpy_ned(1))*Rx(UAM_STATE.rpy_ned(0));
   Eigen::Matrix3d D_ = 0.2*Eigen::Matrix3d::Identity();
   // Rotate thrust to world frame, subtract gravity... The rest I'm not sure about

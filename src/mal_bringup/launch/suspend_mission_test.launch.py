@@ -11,7 +11,7 @@ Launch simulation with one arm.
 
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
-logging = False
+logging = True
 major_frequency = 25.
 
 def generate_launch_description():

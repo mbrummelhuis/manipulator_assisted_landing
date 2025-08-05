@@ -3,6 +3,8 @@ from rclpy.node import Node
 
 import numpy as np
 
+from std_msgs.msg import Int32
+from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined
 
 L_1 = 0.110
@@ -13,16 +15,44 @@ class ContactDetectionLocalization(Node):
     def __init__(self):
         super().__init__('contact_detection')
 
+        self.declare_parameter('effort_threshold', 1.0)
         self.declare_parameter('acc_threshold', 1.0)
 
-        self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, 10)
+        #self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, 10)
+        
+        # Servo subscriber
+        self.subscriber_joints = self.create_subscription(JointState, '/servo/out/state', self.servo_callback, 10)
+        self.joint_state = None
+        self.effort_diff = np.zeros(6)
 
         self.previous_accelero_magnitude = 0.0
         self.contact_acc = False
+        self.effort_threshold = self.get_parameter('effort_threshold').get_parameter_value().double_value
         self.acc_threshold = self.get_parameter('acc_threshold').get_parameter_value().double_value
 
         self.contact_point_1 = None
         self.contact_point_2 = None
+
+        self.contact_publisher = self.create_publisher(Int32, '/contact/out/effort', 10)
+
+    def servo_callback(self, msg):
+        # Calculate torque difference per joint:
+        # If the first message, only populate the member variable
+        if self.joint_state == None:
+            self.joint_state = msg
+            return
+        
+        # For each joint, check if the effort is above the threshold
+        for i in range(len(6)):
+            self.effort_diff[i] = self.joint_state.effort[i] - msg.effort[i]
+            if abs(self.effort_diff[i]) > self.effort_threshold and i < 3:
+                self.get_logger().info(f'Contact detected on arm 1! Effort diff {self.effort_diff[i]}')
+            elif abs(self.effort_diff[i]) > self.effort_threshold and i >= 3:
+                self.get_logger().info(f'Contact detected on arm 2! Effort diff {self.effort_diff[i]}')
+            
+        return
+
+
 
     def estimateExternalWrench(self, body_accleration:np.array, body_angl_velocity:np.array, R_BI:np.array, motor_cmds, 
                                mass, inertia, motor_allocation, thrust_coeffs, g=np.array([0, 0, 9.81])):
