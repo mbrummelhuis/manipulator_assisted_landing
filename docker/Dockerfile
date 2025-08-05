@@ -31,7 +31,8 @@ RUN pip3 install -U --break-system-packages \
     vit-pytorch==1.8.8 \
     pandas==2.2.3 \
     matplotlib==3.9.2 \
-    seaborn==0.13.2
+    seaborn==0.13.2 \
+    pynput==1.8.1
 
-WORKDIR /ros2_ws/aerial_tactile_servoing
+WORKDIR /ros2_ws
 

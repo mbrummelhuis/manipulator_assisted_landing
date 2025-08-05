@@ -10,4 +10,4 @@
 # --privileged -- give the container full access to the host system (needed for GPIO)
 # --mount -- bind a volume to the container, this is handy for active development as you can develop on the host and it gets automtically updated in the container
 
-docker run -it --rm --name mal-container --network=host --ipc=host --device=/dev/ttyUSB0 --privileged --mount type=bind,src=/home/orangepi/manipulator_assisted_landing,dst=/ros2_ws/manipulator_assisted_landing mbrummelhuis/ats-no-build
+docker run -it --rm --name mal-container --network=host --ipc=host --device=/dev/ttyUSB0 --privileged --mount type=bind,src=/home/orangepi/manipulator_assisted_landing,dst=/ros2_ws mbrummelhuis/ats-no-build
