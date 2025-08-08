@@ -17,7 +17,7 @@ major_frequency = 25.
 
 def generate_launch_description():
     ld = LaunchDescription()
-    
+
     #Servo driver
     param_file = os.path.join(get_package_share_directory('mal_bringup'), 'config', 'feetech_ros2_two_arms.yaml')
     servo_driver = Node(
@@ -39,6 +39,22 @@ def generate_launch_description():
         arguments=["--ros-args", "--log-level", "info"]
     )
     ld.add_action(manipulator_controller)
+
+    # Mission director
+    mission_director = Node(
+        package='mission_director',
+        executable='mission_director_suspend',
+        name='mission_director_suspend',
+        output='screen',
+        parameters=[
+            {'frequency': major_frequency},
+            {'probing_speed': 0.05},
+            {'probing_direction': [0., 0., 1.]}
+        ],
+        arguments=["--ros-args", "--log-level", "info"] # Log level info
+
+    )
+    ld.add_action(mission_director)
    
 
     # ROSBAG logging
