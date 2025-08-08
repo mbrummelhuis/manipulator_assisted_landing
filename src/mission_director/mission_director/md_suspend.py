@@ -7,9 +7,10 @@ import numpy as np
 
 from scipy.optimize import minimize
 
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32 
 
 from sensor_msgs.msg import JointState
+from geometry_msgs.msg import TwistStamped
 from feetech_ros2.srv import SetMode
 
 L_1 = 0.110
@@ -39,6 +40,10 @@ class MissionDirectorPy(Node):
 
         # Contact detector
         self.subscriber_contact = self.create_subscription(Int32, '/contact/out/effort', self.contact_callback, 10)
+
+        # Manipulator interface
+        self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
+        self.publisher_manipulator_velocities = self.create_publisher(TwistStamped, '/manipulator/in/velocity', 10)
 
         # Set initial data
         self.FSM_state = 'entrypoint'
@@ -95,8 +100,17 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
 
                 if self.input_state == 1:
-                    self.transition_state('test_set_mode')
+                    self.transition_state('test_ik_node')
             
+            case('test_ik_node'):
+                self.publishMDState(2)
+                if self.first_state_loop:
+                    self.move_arms_to_xyz_position(self.arm_1_nominal, self.arm_2_nominal)
+                    self.first_state_loop = False
+
+                if self.input_state == 1:
+                    self.transition_state('test_set_mode')
+
             case('test_set_mode'):
                 self.publishMDState(2)
                 if self.first_state_loop:
@@ -107,15 +121,15 @@ class MissionDirectorPy(Node):
                 self.get_logger().info("Continue here, it's unclear whether the service ever ends or something")
 
                 if self.input_state == 1:
-                    self.transition_state('test_velocity_setpoint')
+                    self.transition_state('test_velocity_ik')
 
-            case('test_velocity_setpoint'):
+            case('test_velocity_ik'):
                 self.publishMDState(3)
                 if self.first_state_loop:
                     self.get_logger().info('Testing servo velocity mode')
                     self.first_state_loop = False
 
-                self.publish_arms_velocity_commands(0.1, 0.0, 0.1, 0.1, 0.0, 0.1)
+                self.move_arms_in_xyz_velocity([0.0, 0.0, -0.1], [0.0, 0.0, -0.1])
 
                 if self.input_state == 1:
                     self.publish_arms_velocity_commands(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -127,52 +141,7 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Stop servo velocity mode')
                     self.first_state_loop = False
                 self.publish_arms_velocity_commands(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-           
-            case('pre_sensing_config_ik'):
-                self.publishMDState(7)
-                if self.first_state_loop:
-                    self.move_arms_to_bodyxyz_position(self.arm_1_nominal, self.arm_2_nominal)
-                    self.first_state_loop = False
 
-                if self.input_state == 1:
-                    self.transition_state('probing_right')
-
-            case('probing_right'):
-                self.publishMDState(8)
-                # Propagate current position by probing velocity
-                target_ee_1 = self.previous_ee_1 + self.probing_direction*self.probing_speed*self.timer_period
-                target_ee_2 = self.previous_ee_2
-
-                self.previous_ee_1 = target_ee_1
-                self.previous_ee_2 = target_ee_2
-
-                # Invert kinematics on target positions and move joints
-                res = self.move_arms_to_bodyxyz_position(target_ee_1, target_ee_2)
-
-                if np.linalg.norm(target_ee_1) > self.workspace_radius or self.contact_arm_1 == True:
-                    self.get_logger().info(f'Length: {np.linalg.norm(target_ee_1)}, contact_arm_1: {self.contact_arm_1}')
-                    self.previous_ee_1 = self.arm_1_nominal
-                    self.previous_ee_2 = self.arm_2_nominal
-
-                    self.transition_state('probing_left')
-
-            case('probing_left'):
-                self.publishMDState(9)
-                # Propagate current position by probing velocity
-                target_ee_1 = self.previous_ee_1
-                target_ee_2 = self.previous_ee_2 + self.probing_direction*self.probing_speed*self.timer_period
-
-                self.previous_ee_1 = target_ee_1
-                self.previous_ee_2 = target_ee_2
-
-                # Invert kinematics on target positions and move joints
-                res = self.move_arms_to_bodyxyz_position(target_ee_1, target_ee_2)
-
-                if np.linalg.norm(target_ee_2) > self.workspace_radius or self.contact_arm_2 == True:
-                    self.get_logger().info(f'Length: {np.linalg.norm(target_ee_2)}, contact_arm_2: {self.contact_arm_2}')
-                    self.previous_ee_1 = self.arm_1_nominal
-                    self.previous_ee_2 = self.arm_2_nominal
-                    self.transition_state('default_config')
 
     def srv_set_servo_mode(self, mode):
         # Set all servos to the specified mode (4 = continuous position, 1 = velocity)
@@ -180,6 +149,28 @@ class MissionDirectorPy(Node):
         self.future = self.servo_mode_client.call_async(self.mode_set_req)
         rclpy.spin_until_future_complete(self, self.future)
         return self.future.result()
+    
+    def move_arms_to_xyz_position(self, target_position1, target_position2):
+        msg = TwistStamped()
+        msg.twist.linear.x = target_position1[0]
+        msg.twist.linear.y = target_position1[1]
+        msg.twist.linear.z = target_position1[2]
+        msg.twist.angular.x = target_position2[0]
+        msg.twist.angular.y = target_position2[1]
+        msg.twist.angular.z = target_position2[2]
+        msg.header.stamp = self.get_clock().now().to_msg()
+        self.publisher_manipulator_positions.publish(msg)
+
+    def move_arms_in_xyz_velocity(self, target_velocity1, target_velocity2):
+        msg = TwistStamped()
+        msg.twist.linear.x = target_velocity1[0]
+        msg.twist.linear.y = target_velocity1[1]
+        msg.twist.linear.z = target_velocity1[2]
+        msg.twist.angular.x = target_velocity2[0]
+        msg.twist.angular.y = target_velocity2[1]
+        msg.twist.angular.z = target_velocity2[2]
+        msg.header.stamp = self.get_clock().now().to_msg()
+        self.publisher_manipulator_positions.publish(msg)
     
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()
@@ -202,98 +193,6 @@ class MissionDirectorPy(Node):
         y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
         z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
         return [x_BS, y_BS, z_BS]
-
-    def move_arms_to_bodyxyz_position(self, arm1_xyz:np.array, arm2_xyz:np.array):
-        # self.get_logger().info(f'------ ARM 1 -------')
-        joints_1 = self.manipulator_inverse_kinematics(arm1_xyz[0], arm1_xyz[1], arm1_xyz[2], self.arm_1_positions)
-        # self.get_logger().info(f'------ ARM 2 -------')
-        joints_2 = self.manipulator_inverse_kinematics(arm2_xyz[0], arm2_xyz[1], arm2_xyz[2], self.arm_2_positions)
-        if len(joints_1)==3 and len(joints_2)==3:
-            self.move_arms_to_joint_position(*joints_1, *joints_2)
-            return 0
-        else:
-            return -1
-
-    # Do inverse kinematics on the manipulator using a least squares optimization
-    def manipulator_inverse_kinematics(self, x_target, y_target, z_target, current_joint_positions:np.array):
-
-        start_time = datetime.datetime.now()
-        
-        def ik_objective(state:np.array, target_position:np.array, current_state:np.array):
-            q_1 = state[0]
-            q_2 = state[1]
-            q_3 = state[2]
-            x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
-            y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
-            z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
-            position = np.array([x_BS, y_BS, z_BS])
-
-            # Position error (Euclidean distance)
-            pos_err = np.linalg.norm(position - target_position)
-
-            error = pos_err**2
-            regularization = 0.0001 * np.linalg.norm(state - current_state)
-            return error + regularization
-
-        x0 = current_joint_positions
-
-        lower_bounds = [-np.pi, -np.pi/8., -3*np.pi/4.]
-        upper_bounds = [ np.pi,  np.pi/8.,  3*np.pi/4.]
-        bounds = list(zip(lower_bounds, upper_bounds))
-
-        target_position = np.array([x_target, y_target, z_target])
-        result = minimize(
-            fun=ik_objective,
-            x0=x0,
-            args=(target_position, current_joint_positions),
-            bounds=bounds,
-            method='SLSQP',
-            options={'ftol': 1e-4, 'maxiter': 2000, 'disp': False}
-            )
-
-        # In case of convergence
-        if result.success == True:
-            # self.get_logger().info(f'Current joint positions: {current_joint_positions}')
-            # self.get_logger().info(f'Computed joint positions: {result.x}')
-            # Check if output correct
-            position_result = self.position_forward_kinematics(*result.x)
-            # self.get_logger().info(f'Target positions: {target_position}')
-            # self.get_logger().info(f'Computed positions: {position_result}')
-
-            scores = self.ik_objective_eval(result.x, target_position, current_joint_positions)
-            # self.get_logger().info(f'Kinematic error {scores[0]}, regularization {scores[1]}')
-
-            error = np.linalg.norm(np.array(position_result)-np.array([x_target, y_target, z_target]))
-            if error > 0.01:
-                self.get_logger().info(f"Ik failed with error {error}")
-            else:
-                # self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
-                pass
-            q1, q2, q3 = result.x
-            # self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
-            self.get_logger().info(f"IK optimization takes {(datetime.datetime.now()-start_time).microseconds} usec to complete")
-            return np.array([q1, q2, q3])
-        
-        else:
-            self.get_logger().info(f"Optimization failed: {result.message}, returning current joint positions")
-            self.get_logger().info(f'{result.message}')
-            return current_joint_positions
-
-    def ik_objective_eval(self, state:np.array, target_position:np.array, current_state:np.array):
-        q_1 = state[0]
-        q_2 = state[1]
-        q_3 = state[2]
-        x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
-        y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
-        z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
-        position = np.array([x_BS, y_BS, z_BS])
-
-        # Position error (Euclidean distance)
-        pos_err = np.linalg.norm(position - target_position)
-
-        error = pos_err**2
-        regularization = 0.001 * np.linalg.norm(state - current_state)
-        return [error, regularization]
         
     def move_arms_to_joint_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         q1_1_clipped = clip(q1_1, -pi, pi)

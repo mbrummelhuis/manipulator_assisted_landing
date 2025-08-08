@@ -30,18 +30,16 @@ def generate_launch_description():
     )
     ld.add_action(servo_driver)
 
-    # Keyboard teleop
-    # keyboard_teleop = Node(
-    #     package='uam_teleop',
-    #     executable='man_teleop',
-    #     name='keyboard_teleop',
-    #     output='screen',
-    #     parameters=[
-    #         {'servo_increment_deg': 3.0},
-    #     ],
-    #     arguments=["--ros-args", "--log-level", "info"]
-    #     )
-    # ld.add_action(keyboard_teleop)
+    # Manipulator kinematic controller
+    manipulator_controller = Node(
+        package='manipulator_controller',
+        executable='manipulator_controller',
+        name="manipulator_controller",
+        output='screen',
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+    ld.add_action(manipulator_controller)
+   
 
     # ROSBAG logging
     rosbag_record = []

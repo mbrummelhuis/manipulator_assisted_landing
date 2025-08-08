@@ -13,7 +13,7 @@ L3 = 0.330
 
 class ManipulatorController(Node):
     def __init__(self):
-        super.__init__('manipulator_controller')
+        super().__init__('manipulator_controller')
 
         # Servo interface
         self.subscriber_servo = self.create_subscription(JointState, '/servo/out/state', self.callback_servo, 10)
@@ -49,11 +49,17 @@ class ManipulatorController(Node):
                     lowest_diff = diff
                     best_solution2 = solution2
 
-            self.publish_servo_positions(best_solution1 + best_solution2)
-        
+            self.get_logger().info("--- ARM 1 ---")
+            self.get_logger().info(f"Current positions: {msg.position[0]:.2f} \t {msg.position[1]:.2f} \t {msg.position[2]:.2f}")
+            self.get_logger().info(f"Commanded positions: {best_solution1[0]:.2f} \t {best_solution1[1]:.2f} \t {best_solution1[2]:.2f}")
+            #self.publish_servo_positions(best_solution1 + best_solution2)
+
+            self.get_logger().info("--- ARM 2 ---")
+            self.get_logger().info(f"Current positions: {msg.position[3]:.2f} \t {msg.position[4]:.2f} \t {msg.position[5]:.2f}")
+            self.get_logger().info(f"Commanded positions: {best_solution1[3]:.2f} \t {best_solution1[4]:.2f} \t {best_solution1[5]:.2f}")
         elif not solutions_1 or not solutions_2 and self.servo_state:
             return
-        
+
         elif not self.servo_state:
             self.get_logger().error(f'Servo state not set!')
             return
@@ -130,10 +136,13 @@ class ManipulatorController(Node):
 
         return solutions
     
-    def velocity_inverse_kinematics(self, target_velocity:list, tol=1e-9) -> list:
+    def velocity_inverse_kinematics(self, target_velocity:list,) -> list:
         q1 = self.servo_state.position[0]
         q2 = self.servo_state.position[1]
         q3 = self.servo_state.position[2]
+
+        self.get_logger().info('Current states: {q1:.2f} rad \t {q2:.2f} rad \t {q3:.2f} rad ')
+
          # Evaluate jacobian
         jacobian = np.empty((3,3))
         jacobian[0,1]=-L2*math.cos(q2) - L3*math.cos(q2)*math.cos(q3)
@@ -145,20 +154,30 @@ class ManipulatorController(Node):
         jacobian[2,0]=L1*math.sin(q1) + L2*math.sin(q1)*math.cos(q2) + L3*math.sin(q1)*math.cos(q2)*math.cos(q3) + L3*math.sin(q3)*math.cos(q1)
         jacobian[2,1]=L2*math.sin(q2)*math.cos(q1) + L3*math.sin(q2)*math.cos(q1)*math.cos(q3)
         jacobian[2,2]=L3*math.sin(q1)*math.cos(q3) + L3*math.sin(q3)*math.cos(q1)*math.cos(q2)
-
+        
         # Evaluate jacobian
         jacobian_pinv = np.linalg.pinv(jacobian)
         joint_velocities = jacobian_pinv @ np.array(target_velocity)
+
+        self.get_logger().info(f'Velocities: {joint_velocities[0]:.2f} rad \t {joint_velocities[1]:.2f} rad \t {joint_velocities[2]:.2f} rad ')
 
         return joint_velocities.tolist()
 
     
     def publish_servo_positions(self, positions):
+        clipped_positions = np.empty(len(positions))
+        clipped_positions[0] = np.clip(positions[0], -np.pi, np.pi)
+        clipped_positions[1] = np.clip(positions[1], -np.pi/8., np.pi/8.)
+        clipped_positions[2] = np.clip(positions[2], -1.85, 1.85)
+        clipped_positions[3] = np.clip(positions[3], -np.pi, np.pi)
+        clipped_positions[4] = np.clip(positions[4], -np.pi/8., np.pi/8.)
+        clipped_positions[5] = np.clip(positions[5], -1.85, 1.85)
+
         msg = JointState()
-        msg.name = ['q'+str(i) for i in range(len(positions))]
-        msg.position = positions
-        msg.velocity = [0.0 for i in range(len(positions))]
-        msg.effort = [0.0 for i in range(len(positions))]
+        msg.name = ['q'+str(i) for i in range(len(clipped_positions))]
+        msg.position = clipped_positions
+        msg.velocity = [0.0 for i in range(len(clipped_positions))]
+        msg.effort = [0.0 for i in range(len(clipped_positions))]
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo.publish(msg)
     
@@ -170,3 +189,15 @@ class ManipulatorController(Node):
         msg.effort = [0.0 for i in range(len(velocities))]
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo.publish(msg)
+
+def main():
+    rclpy.init(args=None)
+    manipulator_controller = ManipulatorController()
+    rclpy.spin(manipulator_controller)
+
+    # Destroy the node explicitly
+    manipulator_controller.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
