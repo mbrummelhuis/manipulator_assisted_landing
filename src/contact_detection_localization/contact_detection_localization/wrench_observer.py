@@ -30,13 +30,14 @@ class ExternalWrenchObserver(Node):
 
         # Actuators
         self.subscriber_actuators = self.create_subscription(ActuatorMotors, '/fmu/out/actuator_motors', self.actuator_callback, 10)
-        self.actuator_state = None
+        self.actuator_thrust = None
         
         # Publisher
         self.contact_publisher = self.create_publisher(Int32, '/contact/out/effort', 10)
 
         
         # Model parameters
+        self.thrust_coefficient = 19.468 # Obtained through experimental data
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
         self.model_mass = self.get_parameter('mass').get_parameter_value().double_value # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
@@ -71,7 +72,7 @@ class ExternalWrenchObserver(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
 
     def timer_callback(self):
-        if self.sensor_state and self.actuator_state:
+        if self.sensor_state and self.actuator_thrust:
             self.wrench_observer()
             self.contact_detection_localization()
 
@@ -126,7 +127,7 @@ class ExternalWrenchObserver(Node):
         self.sensor_angular_velocity = np.array(msg.gyro_rad)
 
     def actuator_callback(self, msg):
-        self.actuator_state = np.array([msg.control[0], msg.control[1], msg.control[2], msg.control[3]])
+        self.actuator_thrust = np.array([msg.control[0], msg.control[1], msg.control[2], msg.control[3]]) * self.thrust_coefficient
 
 
     def positionForwardKinematics(self, q_1, q_2, q_3):
