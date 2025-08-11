@@ -66,11 +66,14 @@ class ManipulatorController(Node):
             return
 
     def callback_velocity(self, msg):
-        solution1 = self.velocity_inverse_kinematics([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        solution2 = self.velocity_inverse_kinematics([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+        self.get_logger().info("--- ARM 1 ---")
+        solution1 = self.velocity_inverse_kinematics([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z], arm=1)
+        self.get_logger().info("--- ARM 2 ---")
+        solution2 = self.velocity_inverse_kinematics([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z], arm=2)
 
         if solution1 and solution2 and self.servo_state:
             self.publish_servo_velocities(solution1 + solution2)
+            self.get_logger().info(f'Velocity solutions: {solution1[0]:.2f}, {solution1[1]:.2f}, {solution1[2]:.2f} \t {solution2[0]:.2f}, {solution2[1]:.2f}, {solution2[2]:.2f}')
         elif not self.servo_state:
             self.get_logger().error(f'Servo state not set!')
             return
@@ -137,12 +140,17 @@ class ManipulatorController(Node):
 
         return solutions
     
-    def velocity_inverse_kinematics(self, target_velocity:list,) -> list:
-        q1 = self.servo_state.position[0]
-        q2 = self.servo_state.position[1]
-        q3 = self.servo_state.position[2]
+    def velocity_inverse_kinematics(self, target_velocity:list, arm=1) -> list:
+        if arm == 1:
+            q1 = self.servo_state.position[0]
+            q2 = self.servo_state.position[1]
+            q3 = self.servo_state.position[2]
+        elif arm == 2:
+            q1 = self.servo_state.position[3]
+            q2 = self.servo_state.position[4]
+            q3 = self.servo_state.position[5]            
 
-        self.get_logger().info('Current states: {q1:.2f} rad \t {q2:.2f} rad \t {q3:.2f} rad ')
+        self.get_logger().info(f'Current states: {q1:.2f} rad \t {q2:.2f} rad \t {q3:.2f} rad ')
 
          # Evaluate jacobian
         jacobian = np.empty((3,3))
@@ -161,6 +169,10 @@ class ManipulatorController(Node):
         joint_velocities = jacobian_pinv @ np.array(target_velocity)
 
         self.get_logger().info(f'Velocities: {joint_velocities[0]:.2f} rad \t {joint_velocities[1]:.2f} rad \t {joint_velocities[2]:.2f} rad ')
+
+        EE_velocity = jacobian @ joint_velocities
+
+        self.get_logger().info(f'EE velocity: {EE_velocity[0]:.2f}, {EE_velocity[1]:.2f}, {EE_velocity[2]:.2f}')
 
         return joint_velocities.tolist()
 

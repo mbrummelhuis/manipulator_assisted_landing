@@ -88,7 +88,7 @@ class MissionDirectorPy(Node):
         match self.FSM_state:
             case('entrypoint'): # Entry point - wait for position fix
                 if self.input_state == 1:
-                    self.transition_state(new_state='default_config')
+                    self.transition_state(new_state='test_ik_node')
 
             case('default_config'):
                 self.move_arms_to_joint_position(
@@ -128,7 +128,9 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Testing servo velocity mode')
                     self.first_state_loop = False
 
-                self.move_arms_in_xyz_velocity([0.0, 0.0, -0.1], [0.0, 0.0, -0.1])
+                self.probing_vector = self.probing_speed * self.probing_direction
+                self.get_logger().info(f'Probing vector XYZ FRD: {self.probing_vector}')
+                self.move_arms_in_xyz_velocity(self.probing_vector, self.probing_vector)
 
                 if self.input_state == 1:
                     self.publish_arms_velocity_commands(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
