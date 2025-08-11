@@ -117,10 +117,9 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Testing servo set mode')
                     self.first_state_loop = False
                 
-                self.srv_set_servo_mode(1)
-                self.get_logger().info("Continue here, it's unclear whether the service ever ends or something")
+                    self.srv_set_servo_mode(1)
 
-                if self.input_state == 1:
+                if self.input_state == 1 and self.future.result().success:
                     self.transition_state('test_velocity_ik')
 
             case('test_velocity_ik'):
@@ -147,9 +146,16 @@ class MissionDirectorPy(Node):
         # Set all servos to the specified mode (4 = continuous position, 1 = velocity)
         self.mode_set_req.operating_mode = mode
         self.future = self.servo_mode_client.call_async(self.mode_set_req)
-        rclpy.spin_until_future_complete(self, self.future)
-        return self.future.result()
-    
+        self.future.add_done_callback(self._set_mode_response_callback)
+
+    def _set_mode_response_callback(self, future):
+        self.future = future
+        try:
+            response = self.future.result()
+            self.get_logger().info(f"Servo mode set: {response.success}")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")           
+        
     def move_arms_to_xyz_position(self, target_position1, target_position2):
         msg = TwistStamped()
         msg.twist.linear.x = target_position1[0]
@@ -170,7 +176,7 @@ class MissionDirectorPy(Node):
         msg.twist.angular.y = target_velocity2[1]
         msg.twist.angular.z = target_velocity2[2]
         msg.header.stamp = self.get_clock().now().to_msg()
-        self.publisher_manipulator_positions.publish(msg)
+        self.publisher_manipulator_velocities.publish(msg)
     
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()

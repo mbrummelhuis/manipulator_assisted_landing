@@ -52,11 +52,12 @@ class ManipulatorController(Node):
             self.get_logger().info("--- ARM 1 ---")
             self.get_logger().info(f"Current positions: {self.servo_state.position[0]:.2f} \t {self.servo_state.position[1]:.2f} \t {self.servo_state.position[2]:.2f}")
             self.get_logger().info(f"Commanded positions: {best_solution1[0]:.2f} \t {best_solution1[1]:.2f} \t {best_solution1[2]:.2f}")
-            #self.publish_servo_positions(best_solution1 + best_solution2)
 
             self.get_logger().info("--- ARM 2 ---")
             self.get_logger().info(f"Current positions: {self.servo_state.position[3]:.2f} \t {self.servo_state.position[4]:.2f} \t {self.servo_state.position[5]:.2f}")
-            self.get_logger().info(f"Commanded positions: {best_solution1[3]:.2f} \t {best_solution1[4]:.2f} \t {best_solution1[5]:.2f}")
+            self.get_logger().info(f"Commanded positions: {best_solution2[0]:.2f} \t {best_solution2[1]:.2f} \t {best_solution2[2]:.2f}")
+            self.publish_servo_positions(best_solution1 + best_solution2)
+        
         elif not solutions_1 or not solutions_2 and self.servo_state:
             return
 
@@ -145,9 +146,9 @@ class ManipulatorController(Node):
 
          # Evaluate jacobian
         jacobian = np.empty((3,3))
+        jacobian[0,0]=0.0
         jacobian[0,1]=-L2*math.cos(q2) - L3*math.cos(q2)*math.cos(q3)
         jacobian[0,2]=L3*math.sin(q2)*math.sin(q3)
-        jacobian[0,3]=0.0
         jacobian[1,0]=L1*math.cos(q1) + L2*math.cos(q1)*math.cos(q2) - L3*math.sin(q1)*math.sin(q3) + L3*math.cos(q1)*math.cos(q2)*math.cos(q3)
         jacobian[1,1]=-L2*math.sin(q1)*math.sin(q2) - L3*math.sin(q1)*math.sin(q2)*math.cos(q3)
         jacobian[1,2]=-L3*math.sin(q1)*math.sin(q3)*math.cos(q2) + L3*math.cos(q1)*math.cos(q3)
