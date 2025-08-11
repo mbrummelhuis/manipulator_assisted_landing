@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'contact_detection_localization=contact_detection_localization.contact_detection_localization:main'
+            'contact_detection_localization=contact_detection_localization.contact_detection_localization:main',
+            'wrench_observer=contact_detection_localization.wrench_observer:main'
         ],
     },
 )
