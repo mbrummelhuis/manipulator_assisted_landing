@@ -36,11 +36,14 @@ def generate_launch_description():
         name='wrench_observer',
         output='screen',
         parameters=[
+            {'frequency': 30.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
             {'alpha_force': 1.0}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
             {'alpha_torque': 1.0}, # 1 is no filtering
-            {'force_contact_threshold': 1.0},
+            {'alpha_angular_acceleration': 1.0},
+            {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
+            {'contact_force_proximity_threshold': 0.1}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
     )
@@ -57,20 +60,20 @@ def generate_launch_description():
     ld.add_action(manipulator_controller)
 
     # Mission director
-    mission_director = Node(
-        package='mission_director',
-        executable='mission_director_suspend',
-        name='mission_director_suspend',
-        output='screen',
-        parameters=[
-            {'frequency': major_frequency},
-            {'probing_speed': 0.01},
-            {'probing_direction': [0., 0., -1.]}
-        ],
-        arguments=["--ros-args", "--log-level", "info"] # Log level info
+    # mission_director = Node(
+    #     package='mission_director',
+    #     executable='mission_director_suspend',
+    #     name='mission_director_suspend',
+    #     output='screen',
+    #     parameters=[
+    #         {'frequency': major_frequency},
+    #         {'probing_speed': 0.01},
+    #         {'probing_direction': [0., 0., -1.]}
+    #     ],
+    #     arguments=["--ros-args", "--log-level", "info"] # Log level info
 
-    )
-    ld.add_action(mission_director)
+    # )
+    # ld.add_action(mission_director)
 
     # ROSBAG logging
     rosbag_record = []

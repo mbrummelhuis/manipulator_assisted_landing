@@ -1,10 +1,12 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 import numpy as np
 import datetime
 
 from std_msgs.msg import Int32
+from geometry_msgs.msg import PointStamped, Vector3Stamped
 from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined, ActuatorMotors
 
@@ -17,52 +19,93 @@ class ExternalWrenchObserver(Node):
         super().__init__('external_wrench_observer')
 
         # Parameters
+        self.declare_parameter('frequency', 10.0)
         self.declare_parameter('gain_force', 1.0)
         self.declare_parameter('alpha_force', 1.0)
         self.declare_parameter('gain_torque', 1.0)
         self.declare_parameter('alpha_torque', 1.0)
+        self.declare_parameter('alpha_angular_velocity', 1.0)
         self.declare_parameter('force_contact_threshold', 1.0)
+        self.declare_parameter('contact_force_proximity_threshold', 0.1)
+
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
 
         # IMU
-        self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, 10)
-        self.sensor_state = None
+        self.subscriber_accel = self.create_subscription(SensorCombined, '/fmu/out/sensor_combined', self.sensor_callback, qos_profile)
+        self.sensor_acceleration = np.array([0., 0., 0.])
+        self.sensor_angular_velocity = np.array([0., 0., 0.])
 
         # Actuators
-        self.subscriber_actuators = self.create_subscription(ActuatorMotors, '/fmu/out/actuator_motors', self.actuator_callback, 10)
+        self.subscriber_actuators = self.create_subscription(ActuatorMotors, '/fmu/out/actuator_motors', self.actuator_callback, qos_profile)
         self.actuator_thrust = None
-        
+
+        self.subscriber_servos = self.create_subscription(JointState, '/servo/out/state', self.servo_callback, 10)
+        self.servo_state = None
+
         # Publisher
-        self.contact_publisher = self.create_publisher(Int32, '/contact/out/effort', 10)
+        self.publisher_loa_direction = self.create_publisher(Vector3Stamped, '/contact/out/direction', 10)
+        self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/point', 10)
+        self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
+        self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
+        
 
         
         # Model parameters
         self.thrust_coefficient = 19.468 # Obtained through experimental data
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
-        self.model_mass = 3.8 # [kg]
+        self.model_mass = 3.701 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
-        self.linear_allocation_matrix = np.array([0., 0., 0., 0.],
+        self.linear_allocation_matrix = np.array([[0., 0., 0., 0.],
                                                  [0., 0., 0., 0.],
-                                                 [-1., -1., -1., -1.])
+                                                 [-1., -1., -1., -1.]])
         self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
-        
+
         self.gain_torque = self.get_parameter('gain_torque').get_parameter_value().double_value * np.eye(3)
-        self.inertia = np.array([0.071, -1.712e-5, -5.928e-6],
+        self.inertia = np.array([[0.071, -1.712e-5, -5.928e-6],
                                 [-1.712e-5, 0.059, -1.448e-5],
-                                [-5.928e-6, -1.448e-5, 0.121]) # [kgm2]
-        
-        
+                                [-5.928e-6, -1.448e-5, 0.121]]) # [kgm2]
+
         arm_x = 0.184 # [m] Moment arm along the body x-axis
         arm_y = 0.231 # [m] Moment arm along the body y-axis
-        drag_coeff = 0.05 # 
-        self.rotational_allocation_matrix = np.array([-arm_y, arm_y, arm_y, -arm_y], # Roll moment
+        drag_coeff = 0.5 # Somewhat arbitrary
+        self.rotational_allocation_matrix = np.array([[-arm_y, arm_y, arm_y, -arm_y], # Roll moment
                                                      [arm_x, -arm_x, arm_x, -arm_x], # Pitch moment
-                                                     [-drag_coeff, -drag_coeff, drag_coeff, drag_coeff]) # Yaw moment
+                                                     [-drag_coeff, -drag_coeff, drag_coeff, drag_coeff]]) # Yaw moment
         self.alpha_torque = self.get_parameter('alpha_torque').get_parameter_value().double_value
+
+        self.R_accelerometer = np.array([[-1., 0., 0.],
+                                         [0., -1., 0.],
+                                         [0., 0., -1.]])
+
+        # Initial values for updating member variables
+        self.most_recent_force_estimate = np.array([0., 0., 0.])
+        self.most_recent_torque_estimate = np.array([0., 0., 0.])
+        self.momentum_integral = np.array([0., 0., 0.])
+        self.alpha_angular_velocity = self.get_parameter('alpha_angular_velocity').get_parameter_value().double_value
 
         # Contact detection and localization
         self.contact = False
         self.force_contact_threshold = self.get_parameter('force_contact_threshold').get_parameter_value().double_value
+        self.contact_point_proximity_threshold = self.get_parameter('contact_force_proximity_threshold').get_parameter_value().double_value
 
+        # Candidate contact points
+        leg_x = 0.17 # [m] Leg contact point distance along body x-axis
+        leg_y = 0.078 # [m] Leg contact point distance along body y-axis
+        leg_z = 0.09 # [m] Leg contact point distance along body z-axis
+        self.contact_point_candidates = {
+            'right_arm': np.array([0.0, 0.0, 0.0]),
+            'left_arm': np.array([0.0, 0.0, 0.0]),
+            'right_front_leg': np.array([leg_x, leg_y, leg_z]),
+            'right_back_leg': np.array([-leg_x, leg_y, leg_z]),
+            'left_back_leg': np.array([-leg_x, -leg_y, leg_z]),
+            'left_front_leg': np.array([leg_x, -leg_y, leg_z]),
+            'center': np.array([0., 0., leg_z])
+        }
         # Timer -- always last
         self.previous_time = datetime.datetime.now()
         self.counter = 0
@@ -71,43 +114,48 @@ class ExternalWrenchObserver(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
 
     def timer_callback(self):
-        if self.sensor_state and self.actuator_thrust:
+        #self.get_logger().info(f'Running wrench observer. {self.sensor_acceleration}, {self.sensor_angular_velocity}, {self.actuator_thrust}')
+        if self.sensor_acceleration is None or self.sensor_angular_velocity is None or self.actuator_thrust is None:
+            return
+        else:
+            #self.get_logger().info(f'Passed initialization check')
             self.wrench_observer()
             self.contact_detection_localization()
-
+            return
 
     def wrench_observer(self):
-        dt = datetime.datetime.now() - self.previous_time # Get time difference since last
+        dt = (datetime.datetime.now() - self.previous_time).total_seconds() # Get time difference since last
+        self.get_logger().info(f'dt [sec]: {dt}')
         self.previous_time = datetime.datetime.now()
 
         # Force observer
-        force_dot = self.gain_force @ (
-            self.model_mass * self.sensor_acceleration + 
-            self.model_mass * self.acceleration_gravity +
-            self.linear_allocation_matrix @ self.actuator_state - 
+        force_dot = self.gain_force @ ( # TODO rotate 
+            self.model_mass * self.sensor_acceleration - # Add gravity here in the math in the paper
+            self.linear_allocation_matrix @ self.actuator_thrust - 
             self.most_recent_force_estimate)
 
+        # Update force by propagating force_dot and EWMA smoothing
         self.most_recent_force_estimate = (self.alpha_force * (self.most_recent_force_estimate + dt * force_dot) +
             (1. - self.alpha_force)*self.most_recent_force_estimate)
+        self.publisher_estimator_force(self.most_recent_force_estimate)
 
         # Torque observer
-        # J@omega
+        # Calculate observed angular momentum
         current_angular_momentum = self.inertia @ self.sensor_angular_velocity
+        # Update angular momentum model
+        self.momentum_integral = self.momentum_integral + (-np.cross(self.sensor_angular_velocity, current_angular_momentum) + 
+                                                           self.rotational_allocation_matrix @ self.actuator_thrust + self.most_recent_torque_estimate)
+        # Torque estimate is the difference between measured and model, with a gain
+        current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral)
+        
+        # self.get_logger().info(f'Actuator moments: {(self.rotational_allocation_matrix @ self.actuator_thrust)[0]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[1]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[2]:.2f}')
 
-        # Model torque
-        current_model_momentum = (np.cross(np.array(self.sensor_angular_velocity, np.matmul(self.inertia, self.sensor_angular_velocity))) - 
-                                  self.rotational_allocation_matrix @ self.actuator_state) * dt
-
-        # Torque estimate
-        current_torque_estimate = current_angular_momentum + current_model_momentum + self.momentum_integral
-
-        # Update integral
-        self.momentum_integral = self.momentum_integral + current_model_momentum - self.most_recent_torque_estimate
-
+        # EWMA smoothing
         self.most_recent_torque_estimate = (self.alpha_torque * current_torque_estimate +
             (1. - self.alpha_torque) * self.most_recent_torque_estimate)
-        
-        self.get_logger().info(f'Force estimate: {self.most_recent_force_estimate:.2f} [N] \t Torque estimate {self.most_recent_torque_estimate:2f} [Nm]')
+        self.publish_estimated_torque(self.most_recent_torque_estimate)
+        self.get_logger().info(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]')
+        self.get_logger().info(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]')
 
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
@@ -118,18 +166,112 @@ class ExternalWrenchObserver(Node):
             self.contact = False
 
         if self.contact:
-            # Determine the contact point
+            point_on_line, direction, success = self.compute_line_of_action()
+            if success:
+                self.select_contact_point(point_on_line, direction)
             pass
+
+    def compute_line_of_action(self):
+        """
+        Compute the line of action of an external contact force given
+        force and moment residuals.
+                
+        Returns:
+            r0 : (3,) np.array
+                A particular point on the line of action
+            direction : (3,) np.array
+                Unit direction vector of the line (parallel to Delta_F)
+            valid : bool
+                Whether the line is well-defined (False if |Delta_F| is tiny)
+        """
+        F_norm = np.linalg.norm(self.most_recent_force_estimate)
+        if F_norm < 1e-6:
+            # Force too small to define a reliable line of action
+            return None, None, False
+
+        # Normalise force vector
+        direction = self.most_recent_force_estimate / F_norm
+
+        # Particular point on the line closest to r_CoM
+        point_on_line = np.cross(self.most_recent_torque_estimate, self.most_recent_force_estimate) / (F_norm**2)
+
+        self.get_logger().info(f'LOA found! Point: [{point_on_line[0]:.2f}, {point_on_line[1]:.2f}, {point_on_line[2]:.2f}], dir [{direction[0]:.2f}, {direction[1]:.2f}, {direction[2]:.2f}]')
+        self.publisher_loa_direction(direction)
+        self.publisher_loa_point(point_on_line)
+        return point_on_line, direction, True
+    
+    def select_contact_point(self, point_on_line, direction_vector):
+        if self.servo_state is not None:
+            self.update_ee_locations()
+        else:
+            self.get_logger().warn(f'No servo state, cannot compute forward kinematics!')
+            return None, np.inf
+        best_point = None
+        best_distance = np.inf
+
+        for point, coordinates in self.contact_point_candidates.items():
+            diff = coordinates - point_on_line
+            dist = np.linalg.norm(np.cross(diff, direction_vector))  # perpendicular distance
+            if dist < best_distance:
+                best_distance = dist
+                best_point = point
+
+        if best_distance < self.contact_point_proximity_threshold:
+            self.get_logger().info(f'Found contact point: {point}')
+            return best_point, best_distance
+        else:
+            self.get_logger().info(f'No candidate point within proximity. Distance: {best_distance}, threshold: {self.contact_point_proximity_threshold}')
+            return None, best_distance
+
+    def update_ee_locations(self):
+        FK_right = self.position_forward_kinematics(self.servo_state.position[0], self.servo_state.position[1], self.servo_state.position[2])
+        FK_left = self.position_forward_kinematics(self.servo_state.position[3], self.servo_state.position[4], self.servo_state.position[5])
+        self.contact_point_candidates['right_arm'] = np.array(FK_right)
+        self.contact_point_candidates['left_arm'] = np.array(FK_left)
+
+    def publish_loa_direction(self, direction):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = direction[0]
+        msg.vector.y = direction[1]
+        msg.vector.z = direction[2]
+        self.publisher_loa_direction.publish(msg)
+
+    def publish_loa_point(self, point):
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.point.x = point[0]
+        msg.point.y = point[1]
+        msg.point.z = point[2]
+        self.publisher_loa_point.publish(msg)
+
+    def publish_estimated_force(self, force):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = force[0]
+        msg.vector.y = force[1]
+        msg.vector.z = force[2]
+        self.publisher_estimator_force.publish(msg)
+
+    def publish_estimated_torque(self, torque):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = torque[0]
+        msg.vector.y = torque[1]
+        msg.vector.z = torque[2]
+        self.publisher_estimator_torque.publish(msg)
 
     def sensor_callback(self, msg):
         self.sensor_acceleration = np.array(msg.accelerometer_m_s2)
-        self.sensor_angular_velocity = np.array(msg.gyro_rad)
+        self.sensor_angular_velocity = self.alpha_angular_velocity * np.array(msg.gyro_rad) + (1.-self.alpha_angular_velocity)*self.sensor_angular_velocity
 
     def actuator_callback(self, msg):
         self.actuator_thrust = np.array([msg.control[0], msg.control[1], msg.control[2], msg.control[3]]) * self.thrust_coefficient
 
+    def servo_callback(self, msg):
+        self.servo_state = msg
 
-    def positionForwardKinematics(self, q_1, q_2, q_3):
+    def position_forward_kinematics(self, q_1, q_2, q_3):
         x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
         y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
         z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
