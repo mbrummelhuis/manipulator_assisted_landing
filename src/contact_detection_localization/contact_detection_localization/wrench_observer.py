@@ -52,17 +52,18 @@ class ExternalWrenchObserver(Node):
         self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/point', 10)
         self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
         self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
-        
+        self.publisher_contact_point = self.create_publisher(PointStamped, '/contact/out/contact_point', 10)
 
         
         # Model parameters
         self.thrust_coefficient = 19.468 # Obtained through experimental data
+        self.propeller_incline_angle = 5 # [deg] propeller incline in degreess
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
         self.model_mass = 3.701 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
-        self.linear_allocation_matrix = np.array([[0., 0., 0., 0.],
-                                                 [0., 0., 0., 0.],
-                                                 [-1., -1., -1., -1.]])
+        self.linear_allocation_matrix = np.array([[-np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
+                                                 [-np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
+                                                 [-np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle))]])
         self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
 
         self.gain_torque = self.get_parameter('gain_torque').get_parameter_value().double_value * np.eye(3)
@@ -72,10 +73,11 @@ class ExternalWrenchObserver(Node):
 
         arm_x = 0.184 # [m] Moment arm along the body x-axis
         arm_y = 0.231 # [m] Moment arm along the body y-axis
-        drag_coeff = 0.5 # Somewhat arbitrary
-        self.rotational_allocation_matrix = np.array([[-arm_y, arm_y, arm_y, -arm_y], # Roll moment
-                                                     [arm_x, -arm_x, arm_x, -arm_x], # Pitch moment
-                                                     [-drag_coeff, -drag_coeff, drag_coeff, drag_coeff]]) # Yaw moment
+        drag_coeff = 0.1e-5 # Somewhat arbitrary
+        yaw_moment_arm = 0.33911 # [m] Moment arm of yaw contribution of thrust
+        self.rotational_allocation_matrix = np.array([[-arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_y*np.cos(np.deg2rad(self.propeller_incline_angle))], # Roll moment
+                                                     [arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle))], # Pitch moment
+                                                     [np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff]]) # Yaw moment
         self.alpha_torque = self.get_parameter('alpha_torque').get_parameter_value().double_value
 
         self.R_accelerometer = np.array([[-1., 0., 0.],
@@ -218,6 +220,7 @@ class ExternalWrenchObserver(Node):
 
         if best_distance < self.contact_point_proximity_threshold:
             self.get_logger().info(f'Found contact point: {point}')
+            self.publish_contact_point(point)
             return best_point, best_distance
         else:
             self.get_logger().info(f'No candidate point within proximity. Distance: {best_distance}, threshold: {self.contact_point_proximity_threshold}')
@@ -260,6 +263,14 @@ class ExternalWrenchObserver(Node):
         msg.vector.y = torque[1]
         msg.vector.z = torque[2]
         self.publisher_estimator_torque.publish(msg)
+
+    def publish_contact_point(self, point):
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.point.x = point[0]
+        msg.point.y = point[1]
+        msg.point.z = point[2]
+        self.publisher_contact_point.publish(msg)        
 
     def sensor_callback(self, msg):
         self.sensor_acceleration = np.array(msg.accelerometer_m_s2)
