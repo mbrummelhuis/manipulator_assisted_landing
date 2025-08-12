@@ -29,6 +29,33 @@ def generate_launch_description():
     )
     ld.add_action(servo_driver)
 
+    # Wrench estimator
+    contact_detector = Node(
+        package='contact_detection_localization',
+        executable='wrench_observer',
+        name='wrench_observer',
+        output='screen',
+        parameters=[
+            {'gain_force': 1.0}, # Should be unity following the dynamics
+            {'alpha_force': 1.0}, # 1 is no filtering
+            {'gain_torque': 1.0}, # Should be unity following the dynamics
+            {'alpha_torque': 1.0}, # 1 is no filtering
+            {'force_contact_threshold': 1.0},
+        ],
+        arguments=["--ros-args", "--log-level", "info"] # Log level info
+    )
+    ld.add_action(contact_detector)
+
+    # Manipulator kinematic controller
+    manipulator_controller = Node(
+        package='manipulator_controller',
+        executable='manipulator_controller',
+        name="manipulator_controller",
+        output='screen',
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+    ld.add_action(manipulator_controller)
+
     # Mission director
     mission_director = Node(
         package='mission_director',
@@ -44,19 +71,6 @@ def generate_launch_description():
 
     )
     ld.add_action(mission_director)
-
-    contact_detector = Node(
-        package='contact_detection_localization',
-        executable='contact_detection_localization',
-        name='contact_detection_localization',
-        output='screen',
-        parameters=[
-            {'effort_threshold': 20.0},
-            {'acc_threshold': 1.0}
-        ],
-        arguments=["--ros-args", "--log-level", "info"] # Log level info
-    )
-    ld.add_action(contact_detector)
 
     # ROSBAG logging
     rosbag_record = []

@@ -8,20 +8,19 @@ from std_msgs.msg import Int32
 from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined, ActuatorMotors
 
-L_1 = 0.110 # TODO
-L_2 = 0.317 # TODO
-L_3 = 0.330 # TODOs
+L_1 = 0.118 # TODO
+L_2 = 0.326 # TODO
+L_3 = 0.273 #0.330 with tactip # TODOs
 
 class ExternalWrenchObserver(Node):
     def __init__(self):
         super().__init__('external_wrench_observer')
 
         # Parameters
-        self.declare_parameter('mass', 1.0)
         self.declare_parameter('gain_force', 1.0)
-        self.declare_parameter('alpha_force', 0.1)
+        self.declare_parameter('alpha_force', 1.0)
         self.declare_parameter('gain_torque', 1.0)
-        self.declare_parameter('alpha_torque', 0.1)
+        self.declare_parameter('alpha_torque', 1.0)
         self.declare_parameter('force_contact_threshold', 1.0)
 
         # IMU
@@ -39,7 +38,7 @@ class ExternalWrenchObserver(Node):
         # Model parameters
         self.thrust_coefficient = 19.468 # Obtained through experimental data
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
-        self.model_mass = self.get_parameter('mass').get_parameter_value().double_value # [kg]
+        self.model_mass = 3.8 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
         self.linear_allocation_matrix = np.array([0., 0., 0., 0.],
                                                  [0., 0., 0., 0.],
@@ -47,14 +46,14 @@ class ExternalWrenchObserver(Node):
         self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
         
         self.gain_torque = self.get_parameter('gain_torque').get_parameter_value().double_value * np.eye(3)
-        self.inertia = np.array([],
-                                [],
-                                []) # [kgm2] TODO
+        self.inertia = np.array([0.071, -1.712e-5, -5.928e-6],
+                                [-1.712e-5, 0.059, -1.448e-5],
+                                [-5.928e-6, -1.448e-5, 0.121]) # [kgm2]
         
         
-        arm_x = 1.0 # [m] Moment arm along the body x-axis TODO
-        arm_y = 1.0 # [m] Moment arm along the body y-axis TODO
-        drag_coeff = 0.05 # TODO
+        arm_x = 0.184 # [m] Moment arm along the body x-axis
+        arm_y = 0.231 # [m] Moment arm along the body y-axis
+        drag_coeff = 0.05 # 
         self.rotational_allocation_matrix = np.array([-arm_y, arm_y, arm_y, -arm_y], # Roll moment
                                                      [arm_x, -arm_x, arm_x, -arm_x], # Pitch moment
                                                      [-drag_coeff, -drag_coeff, drag_coeff, drag_coeff]) # Yaw moment

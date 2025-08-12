@@ -27,6 +27,9 @@ class ManipulatorController(Node):
         self.servo_state = None
 
     def callback_servo(self, msg):
+        """
+        Update the servo data
+        """
         self.servo_state = msg
 
     def callback_position(self, msg):
