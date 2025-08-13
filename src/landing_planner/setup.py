@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'landing_planner=landing_planner.landing_planner:main'
         ],
     },
 )

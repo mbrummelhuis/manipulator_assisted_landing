@@ -7,10 +7,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPo
 from numpy import pi, clip
 import numpy as np
 
-from scipy.optimize import minimize
-
 from std_msgs.msg import Int32
-
+from geometry_msgs import TwistStamped
 from sensor_msgs.msg import JointState
 
 from px4_msgs.msg import VehicleStatus
@@ -294,76 +292,27 @@ class MissionDirectorPy(Node):
         z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
         return [x_BS, y_BS, z_BS]
 
-    def move_arms_to_bodyxyz_position(self, arm1_xyz:np.array, arm2_xyz:np.array):
-        # self.get_logger().info(f'------ ARM 1 -------')
-        joints_1 = self.manipulator_inverse_kinematics(arm1_xyz[0], arm1_xyz[1], arm1_xyz[2], self.arm_1_positions)
-        # self.get_logger().info(f'------ ARM 2 -------')
-        joints_2 = self.manipulator_inverse_kinematics(arm2_xyz[0], arm2_xyz[1], arm2_xyz[2], self.arm_2_positions)
-        if len(joints_1)==3 and len(joints_2)==3:
-            self.move_arms_to_joint_position(*joints_1, *joints_2)
-            return 0
-        else:
-            return -1
+    def move_arms_to_xyz_position(self, target_position1, target_position2):
+        msg = TwistStamped()
+        msg.twist.linear.x = target_position1[0]
+        msg.twist.linear.y = target_position1[1]
+        msg.twist.linear.z = target_position1[2]
+        msg.twist.angular.x = target_position2[0]
+        msg.twist.angular.y = target_position2[1]
+        msg.twist.angular.z = target_position2[2]
+        msg.header.stamp = self.get_clock().now().to_msg()
+        self.publisher_manipulator_positions.publish(msg)
 
-    # Do inverse kinematics on the manipulator using a least squares optimization
-    def manipulator_inverse_kinematics(self, x_target, y_target, z_target, current_joint_positions:np.array):
-        
-        def ik_objective(state:np.array, target_position:np.array, current_state:np.array):
-            q_1 = state[0]
-            q_2 = state[1]
-            q_3 = state[2]
-            x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
-            y_BS = L_1*np.sin(q_1) + L_2*np.sin(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L_3*np.sin(q_3)*np.cos(q_1)
-            z_BS = -L_1*np.cos(q_1) - L_2*np.cos(q_1)*np.cos(q_2) + L_3*np.sin(q_1)*np.sin(q_3) - L_3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
-            position = np.array([x_BS, y_BS, z_BS])
-
-            # Position error (Euclidean distance)
-            pos_err = np.linalg.norm(position - target_position)
-
-            error = pos_err**2
-            regularization = 0.0001 * np.linalg.norm(state - current_state)
-            return error + regularization
-
-        x0 = current_joint_positions
-
-        lower_bounds = [-np.pi, -np.pi/8., -3*np.pi/4.]
-        upper_bounds = [ np.pi,  np.pi/8.,  3*np.pi/4.]
-        bounds = list(zip(lower_bounds, upper_bounds))
-
-        target_position = np.array([x_target, y_target, z_target])
-        result = minimize(
-            fun=ik_objective,
-            x0=x0,
-            args=(target_position, current_joint_positions),
-            bounds=bounds,
-            method='SLSQP',
-            options={'ftol': 1e-4, 'maxiter': 1000, 'disp': False}
-            )
-
-        # In case of convergence
-        if result.success == True:
-            #self.get_logger().info(f'Current joint positions: {current_joint_positions}')
-            #self.get_logger().info(f'Computed joint positions: {result.x}')
-            # Check if output correct
-            position_result = self.position_forward_kinematics(*result.x)
-            #self.get_logger().info(f'Target positions: {target_position}')
-            #self.get_logger().info(f'Computed positions: {position_result}')
-
-
-            error = np.linalg.norm(np.array(position_result)-np.array([x_target, y_target, z_target]))
-            if error > 0.0001:
-                self.get_logger().info(f"Ik failed with error {error}")
-            else:
-                #self.get_logger().info(f"Joint positions {result.x} yields FK {position_result} with target {[x_target, y_target, z_target]}")
-                pass
-            q1, q2, q3 = result.x
-            #self.get_logger().info(f"Joint solution (q1, q2, q3): {result.x}")
-            return np.array([q1, q2, q3])
-        
-        else:
-            self.get_logger().info(f"Optimization failed: {result.message}, returning current joint positions")
-            self.get_logger().info(f'{result.message}')
-            return current_joint_positions
+    def move_arms_in_xyz_velocity(self, target_velocity1, target_velocity2):
+        msg = TwistStamped()
+        msg.twist.linear.x = target_velocity1[0]
+        msg.twist.linear.y = target_velocity1[1]
+        msg.twist.linear.z = target_velocity1[2]
+        msg.twist.angular.x = target_velocity2[0]
+        msg.twist.angular.y = target_velocity2[1]
+        msg.twist.angular.z = target_velocity2[2]
+        msg.header.stamp = self.get_clock().now().to_msg()
+        self.publisher_manipulator_velocities.publish(msg)
 
     def move_arms_to_joint_position(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         q1_1_clipped = clip(q1_1, -pi, pi)

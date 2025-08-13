@@ -29,6 +29,49 @@ def generate_launch_description():
     )
     ld.add_action(servo_driver)
 
+    # Wrench estimator
+    contact_detector = Node(
+        package='contact_detection_localization',
+        executable='wrench_observer',
+        name='wrench_observer',
+        output='screen',
+        parameters=[
+            {'frequency': 30.0},
+            {'gain_force': 1.0}, # Should be unity following the dynamics
+            {'alpha_force': 1.0}, # 1 is no filtering
+            {'gain_torque': 1.0}, # Should be unity following the dynamics
+            {'alpha_torque': 1.0}, # 1 is no filtering
+            {'alpha_angular_acceleration': 1.0},
+            {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
+            {'contact_force_proximity_threshold': 0.1}
+        ],
+        arguments=["--ros-args", "--log-level", "info"] # Log level info
+    )
+    ld.add_action(contact_detector)
+
+    # Manipulator kinematic controller
+    manipulator_controller = Node(
+        package='manipulator_controller',
+        executable='manipulator_controller',
+        name="manipulator_controller",
+        output='screen',
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+    ld.add_action(manipulator_controller)
+
+    # Landing planner
+    landing_planner = Node(
+        package='landing_planner',
+        executable='landing_planner',
+        name='landing_planner',
+        output='screen',
+        parameters=[
+            {'dimension': 2},
+            {'frequency': 20.0}
+        ],
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+
     # Mission director
     mission_director = Node(
         package='mission_director',
@@ -37,10 +80,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'frequency': major_frequency},
-            {'position_clip': 2.5},
-            {'takeoff_altitude': -1.5},
-            {'probing_speed': 0.05},
-            {'probing_direction': [0., 0., 1.]}
+            {'probing_speed': 0.01},
+            {'probing_direction': [0., 0., -1.]}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 
