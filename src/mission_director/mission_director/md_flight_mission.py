@@ -8,7 +8,7 @@ from numpy import pi, clip
 import numpy as np
 
 from std_msgs.msg import Int32
-from geometry_msgs import TwistStamped
+from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import JointState
 
 from px4_msgs.msg import VehicleStatus
@@ -17,6 +17,8 @@ from px4_msgs.msg import VehicleLocalPosition
 from px4_msgs.msg import TrajectorySetpoint
 from px4_msgs.msg import OffboardControlMode
 from px4_msgs.msg import VehicleCommand
+
+from feetech_ros2.srv import SetMode
 
 L_1 = 0.110
 L_2 = 0.317
@@ -53,12 +55,18 @@ class MissionDirectorPy(Node):
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
 
+        # Landing planner output
+        self.subscriber_contact_point = self.create_subscription(Int32, '/contact/out/contact_point', self.contact_point_callback, 10)
+        self.subscriber_landing_point = self.create_subscription(TrajectorySetpoint, '/landing/out/start_location', self.landing_point_callback, 10)
+        self.subscriber_landing_manipulator = self.create_subscription(TwistStamped, '/landing/out/manipulator', self.landing_manipulator_callback, 10)
+
         # Mission director in/output
         self.subscriber_input_state = self.create_subscription(Int32, '/md/input', self.input_state_callback, 10)
         self.publisher_md_state = self.create_publisher(Int32, '/md/state', 10)
 
         # Set initial data
         self.FSM_state = 'entrypoint'
+        self.dry_test = True
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
@@ -66,8 +74,10 @@ class MissionDirectorPy(Node):
         self.armed = False
         self.offboard = False
         self.killed = False
+        self.contact_counter = 0
         self.x_setpoint = 0.0
         self.y_setpoint = 0.0
+        self.most_recent_contact_point = None
         self.arm_1_positions = np.array([0.0, 0.0, 0.0])
         self.arm_1_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_1_effort = np.array([0.0, 0.0, 0.0])
@@ -80,6 +90,10 @@ class MissionDirectorPy(Node):
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
+        
+        self.manipulator1_landing_position = None
+        self.manipulator2_landing_position = None
+        self.landing_start_position = None
 
         self.probing_direction = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
         self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
@@ -100,7 +114,7 @@ class MissionDirectorPy(Node):
 
     def timer_callback(self):
         match self.FSM_state:
-            
+
             case('entrypoint'): # Entry point - wait for position fix
                 self.publishMDState(0)
                 if self.first_state_loop:
@@ -117,31 +131,21 @@ class MissionDirectorPy(Node):
                     self.transition_state(new_state='wait_for_servo_driver')
 
             case('wait_for_servo_driver'):
+                self.publishMDState(1)
                 # State transition
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('move_arm_landed')
+                    self.transition_state('default_config')
 
-            case('move_arm_landed'):
-                self.publishMDState(1)
+            case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
-               
-                # State transition
-                if (datetime.datetime.now() - self.state_start_time).seconds > 15 or self.input_state == 1:
-                    self.transition_state(new_state='wait_for_arm_offboard')
-                    
-                if (datetime.datetime.now() - self.state_start_time).seconds > 15 or self.input_state == 1:
-                    self.transition_state(new_state='wait_for_arm_offboard')
+                    pi/3, 0.0, -1.6,
+                    -pi/3, 0.0, 1.6)
+                self.publishMDState(2)
+                if self.first_state_loop:
+                    self.get_logger().info('Default config -- Suspend drone and continue')
+                    self.first_state_loop = False
 
-            case('arms_pre_sensing_configuration_landed'):
-                self.publishMDState(1)
-                self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.2,
-                    -pi/3, 0.0, -1.2)
-
-                # State transition
-                if (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                if self.input_state == 1:
                     self.transition_state('wait_for_arm_offboard')
 
             case('wait_for_arm_offboard'):
@@ -150,13 +154,13 @@ class MissionDirectorPy(Node):
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.6,
                     -pi/2, 0.0, 1.6)
-                
+
                 # State transition
                 if self.armed and not self.offboard:
                     self.get_logger().info('Armed but not offboard -- waiting')
                 elif not self.armed and self.offboard:
                     self.get_logger().info('Not armed but offboard -- waiting')
-                elif self.armed and self.offboard:
+                elif (self.armed and self.offboard) or self.input_state == 1:
                     self.transition_state('takeoff')
 
             case('takeoff'): # Takeoff - wait for takeoff altitude
@@ -164,8 +168,8 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.8,
-                    -pi/2, 0.0, 1.8)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 current_altitude = self.vehicle_local_position.z
 
                 # First state loop
@@ -173,86 +177,107 @@ class MissionDirectorPy(Node):
                     self.get_logger().info(f'Vehicle local position heading: {self.vehicle_local_position.heading}')
                     self.get_logger().info(f'Takeoff altitude: {self.takeoff_altitude}')
                     self.first_state_loop = False
-                
+
                 # State transition
-                if not self.offboard:
+                if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('hover_in_place')
-            
-            case('hover_in_place'):
+                    self.transition_state('move_arms_to_start_position')
+
+            case('move_arms_to_start_position'):
                 self.publishMDState(5)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
-                self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.3,
-                    -pi/2, 0.0, 1.3)
-                
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([np.linalg.norm(self.probing_direction[0:2]), self.probing_direction[2]]))
+                rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
+                rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
+
+                self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
+
                 # State transition
-                if not self.offboard:
+                if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 60 or self.input_state == 1:
-                    self.transition_state('arms_pre_sensing_configuration')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                    self.transition_state('switch_to_velocity_mode')  
 
-            case('arms_pre_sensing_configuration'):
-                self.publishMDState(6)
+            case('switch_to_velocity_mode'):
+                self.publishMDState(10)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
 
-                # First state loop
                 if self.first_state_loop:
-                    self.move_arms_to_bodyxyz_position(self.arm_1_nominal, self.arm_2_nominal)
+                    self.first_state_loop = False
+                    self.srv_set_servo_mode(1)
+
+                if self.input_state == 1 and self.future.result().success:
+                    self.transition_state('probing')
+            
+            # Verify after here
+            case('probing'):
+                self.publishMDState(11)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.contact_counter = 0
                     self.first_state_loop = False
 
-                # State transitions
-                if not self.offboard:
-                    self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                # Transform
+                body_probing_direction = self.Rz(self.vehicle_local_position.heading, self.probing_direction)
+                self.move_arms_in_xyz_velocity(body_probing_direction)
+
+                # TODO Move arm back if contact point is detected
+                if self.most_recent_contact_point == 1: # Arm 1
+                    # Move arm back or back to norminal position
+                    pass
+                elif self.most_recent_contact_point == 2: # Arm 2
+                    # Move arm back or to nominal position
+                    pass
+
+                if self.contact_counter == 2 or self.input_state == 1:
+                    self.transition_state('switch_to_position_mode')
+
+            case('switch_to_position_mode'):
+                self.publishMDState(20)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.first_state_loop = False
+                    self.srv_set_servo_mode(4)
+
+                if self.input_state == 1 and self.future.result().success:
                     self.transition_state('probing')
 
-            case('probing'):
-                self.publishMDState(7)
+            case('pre_landing'):
+                self.publishMDState(21)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+                self.publishTrajectoryPositionSetpoint(self.landing_start_position.x, self.landing_start_position.y, self.landing_start_position.z, self.landing_start_position.heading)                
 
-                # Propagate current position by probing velocity
-                target_ee_1 = self.previous_ee_1 + self.probing_direction*self.probing_speed*self.timer_period
-                target_ee_2 = self.previous_ee_2 + self.probing_direction*self.probing_speed*self.timer_period
+                if self.first_state_loop:
+                    self.first_state_loop = False
 
-                self.previous_ee_1 = target_ee_1
-                self.previous_ee_2 = target_ee_2
+                if self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None:
+                    self.get_logger().info(f'Moving manipulator to landing position in body frame:')
+                    self.get_logger().info(f'Arm 1: {self.manipulator1_landing_position[0]:.2f}, {self.manipulator1_landing_position[1]:.2f}, {self.manipulator1_landing_position[2]:.2f}')
+                    self.get_logger().info(f'Arm 2: {self.manipulator2_landing_position[0]:.2f}, {self.manipulator2_landing_position[1]:.2f}, {self.manipulator2_landing_position[2]:.2f}')
 
-                # Invert kinematics on target positions and move joints
-                res = self.move_arms_to_bodyxyz_position(*target_ee_1, *target_ee_2)
+                    self.move_arms_to_xyz_position(self.manipulator1_landing_position, self.manipulator2_landing_position)
 
                 
-
-                # State transitions
-                if not self.offboard:
-                    self.transition_state('emergency')
-
-                if np.linalg.norm(target_ee_1) > self.workspace_radius:
-                    self.transition_state('move_arms_for_landing')
-
-            case('move_arms_for_landing'):
-                self.publishMDState(9)
-                self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
-                self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -1.6, self.vehicle_local_position.heading)
-
-                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
+                if ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
+                    (self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None):
                     self.transition_state('land')
             
             case('land'):
-                self.publishMDState(9)
+                self.publishMDState(22)
                 self.land()
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('land')
+                    self.transition_state('landed')
 
             case('landed'):
-                self.publishMDState(10)
+                self.publishMDState(23)
                 self.get_logger().info('Done')
                 self.disarmVehicle()
 
@@ -269,6 +294,22 @@ class MissionDirectorPy(Node):
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
                 self.transition_state('emergency')
+
+    def get_align_heading(self):
+        # Normalize the probing direction vector and find horizontal projection
+        normalized_probing_direction = self.probing_direction/np.linalg.norm(self.probing_direction)
+        horizontal_projection = np.array([normalized_probing_direction[0], normalized_probing_direction[1]])
+        # If the direction is straight up or down, return own heading
+        if np.linalg.norm(horizontal_projection) < 1e-3:
+            return self.vehicle_local_position.heading
+        else:
+            vehicle_y_in_world = np.array([np.sin(self.vehicle_local_position.heading), np.cos(self.vehicle_local_position.heading)])
+            positive_heading = self.signed_angle_2d(vehicle_y_in_world, horizontal_projection)
+            negative_heading = self.signed_angle_2d(-vehicle_y_in_world, horizontal_projection)
+            if abs(positive_heading)>=abs(negative_heading):
+                return negative_heading
+            elif abs(negative_heading)>abs(positive_heading):
+                return positive_heading
 
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()
@@ -344,6 +385,10 @@ class MissionDirectorPy(Node):
             x_clipped = clip(x, -self.position_clip, self.position_clip)
             y_clipped = clip(y, -self.position_clip, self.position_clip)
             z_clipped = clip(z, -self.position_clip, 0.0) # Negative up
+        else:
+            x_clipped = x
+            y_clipped = y
+            z_clipped = z
         msg = TrajectorySetpoint()
         msg.position[0] = x_clipped
         msg.position[1] = y_clipped
@@ -447,6 +492,36 @@ class MissionDirectorPy(Node):
         self.arm_2_effort[0] = msg.effort[3] # Pivot
         self.arm_2_effort[1] = msg.effort[4] # Shoulder
         self.arm_2_effort[2] = msg.effort[5] # Elbow
+
+    def landing_point_callback(self, msg):
+        self.landing_start_position = msg
+
+    def landing_manipulator_callback(self, msg):
+        self.manipulator1_landing_position = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
+        self.manipulator2_landing_position = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+    
+    def contact_point_callback(self, msg):
+        self.most_recent_contact_point = msg.data
+        self.contact_counter += 1
+
+    def Rx(self, angle:float, vector:np.array) -> np.array:
+        return np.array([[1., 0., 0.],
+                         [0., np.cos(angle), -np.sin(angle)],
+                         [0., np.sin(angle), np.cos(angle)]]) @ vector
+
+    def Rz(self,angle:float, vector:np.array) -> np.array:
+        return np.array([[np.cos(angle), -np.sin(angle), 0.],
+        [np.sin(angle), np.cos(angle), 0.],
+        [0., 0., 1.]]) @ vector
+
+    def R2(self, angle:float, vector:np.array) -> np.array:
+        return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]) @ vector
+
+    def signed_angle_2d(self, v1:np.array, v2:np.array) -> float:
+        # Normalize
+        v1_u = v1 / np.linalg.norm(v1)
+        v2_u = v2 / np.linalg.norm(v2)
+        return np.arctan2(np.cross(v1_u, v2_u))
 
     def transition_state(self, new_state='end'):
         if self.input_state != 0:

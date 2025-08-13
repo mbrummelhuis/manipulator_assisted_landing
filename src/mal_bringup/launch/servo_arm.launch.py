@@ -40,20 +40,20 @@ def generate_launch_description():
     ld.add_action(manipulator_controller)
 
     # Mission director
-    mission_director = Node(
-        package='mission_director',
-        executable='mission_director_suspend',
-        name='mission_director_suspend',
-        output='screen',
-        parameters=[
-            {'frequency': major_frequency},
-            {'probing_speed': 0.01},
-            {'probing_direction': [0., 0., -1.]}
-        ],
-        arguments=["--ros-args", "--log-level", "info"] # Log level info
+    # mission_director = Node(
+    #     package='mission_director',
+    #     executable='mission_director_suspend',
+    #     name='mission_director_suspend',
+    #     output='screen',
+    #     parameters=[
+    #         {'frequency': major_frequency},
+    #         {'probing_speed': 0.01},
+    #         {'probing_direction': [0., 0., -1.]}
+    #     ],
+    #     arguments=["--ros-args", "--log-level", "info"] # Log level info
 
-    )
-    ld.add_action(mission_director)
+    # )
+    # ld.add_action(mission_director)
    
 
     # ROSBAG logging

@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 import numpy as np
 
@@ -16,8 +17,14 @@ class LandingPlanner(Node):
         self.dimension = self.get_parameter('dimension').get_parameter_value().integer_value
 
         # Subscriber
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
         self.subscription_contact_point = self.create_subscription(PointStamped, '/contact/out/contact_point', self.contact_point_callback, 10)
-        self.subscription_local_position = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, 10)
+        self.subscription_local_position = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
 
         # Publisher
         self.publisher_plane_centroid = self.create_publisher(PointStamped, '/landing/out/centroid', 10) # For logging
@@ -25,7 +32,7 @@ class LandingPlanner(Node):
 
         self.publisher_landing_start = self.create_publisher(TrajectorySetpoint, '/landing/out/start_location', 10)
         self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/landing/out/manipulator', 10)
-        
+
         # Data
         self.landing_offset = self.get_parameter('landing_offset').get_parameter_value().double_value
         self.contact_points = []
@@ -41,7 +48,6 @@ class LandingPlanner(Node):
         self.x_manipulator_distance = 0.08
         self.y_manipulator_distance = 0.4
         self.leg_z = 0.09
-
 
     def plan_landing(self):
         # Landing start point above the centroid of the plane
@@ -59,7 +65,6 @@ class LandingPlanner(Node):
         
         self.publish_desired_manipulator_positions(arm1_ee_position_body, arm2_ee_position_body)
 
-    
     def contact_point_callback(self, msg):
         """
         Add contact points to the database and if enough have been gathered, determine the plane
@@ -80,7 +85,7 @@ class LandingPlanner(Node):
         """
         Fit a plane through two contact points,
         constrained to be parallel to the drone's body x-axis.
-        
+
         Returns:
             centroid (np.ndarray): point on the plane in world frame
             normal (np.ndarray): unit normal vector of the plane in world frame
@@ -107,7 +112,7 @@ class LandingPlanner(Node):
         self.publish_centroid(centroid_world)
         self.publish_normal(normal_world)
         return centroid_world, normal_world, centroid_body, normal_body
-        
+
     def determine_plane_3D(self) -> tuple[np.array, np.array]:
         '''
         Determine the best-fitting plane between all the contact points
@@ -144,7 +149,7 @@ class LandingPlanner(Node):
         Heading is the angle (in radians) between the plane's projection 
         onto the horizontal plane and North (y-axis), in [0, 2pi).
 
-        
+
         Returns:
             heading: float, radians in [0, 2pi)
         """
@@ -158,7 +163,6 @@ class LandingPlanner(Node):
         z_axis = np.array([0,0,1]) # Up to comply with intuition
         return np.arccos(np.abs(np.dot(normal, z_axis)) / np.linalg.norm(normal))
 
-    
     def publish_normal(self, vector:np.array):
         msg = Vector3Stamped()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -195,14 +199,14 @@ class LandingPlanner(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_manipulator_positions.publish(msg)
 
-        
     def local_position_callback(self, msg):
         self.x_axis[0] = np.cos(msg.heading)
         self.x_axis[1] = np.sin(msg.heading)
         self.x_axis[2] = 0.
 
         self.body_heading = msg.heading
-
+        if self.body_position is None:
+            self.body_position = np.empty(3)
         self.body_position[0] = msg.x
         self.body_position[1] = msg.y
         self.body_position[2] = msg.z

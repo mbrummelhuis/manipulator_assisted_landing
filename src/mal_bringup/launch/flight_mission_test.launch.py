@@ -13,6 +13,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 """
 logging = True
 major_frequency = 25.
+md_name = 'mission_director_flight_mission'
 
 def generate_launch_description():
     ld = LaunchDescription()
@@ -33,7 +34,7 @@ def generate_launch_description():
     contact_detector = Node(
         package='contact_detection_localization',
         executable='wrench_observer',
-        name='wrench_observer',
+        name='WObs',
         output='screen',
         parameters=[
             {'frequency': 30.0},
@@ -45,7 +46,7 @@ def generate_launch_description():
             {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
             {'contact_force_proximity_threshold': 0.1}
         ],
-        arguments=["--ros-args", "--log-level", "info"] # Log level info
+        arguments=["--ros-args", "--log-level", "error"] # Log level info
     )
     ld.add_action(contact_detector)
 
@@ -53,7 +54,7 @@ def generate_launch_description():
     manipulator_controller = Node(
         package='manipulator_controller',
         executable='manipulator_controller',
-        name="manipulator_controller",
+        name="MCon",
         output='screen',
         arguments=["--ros-args", "--log-level", "info"]
     )
@@ -63,20 +64,21 @@ def generate_launch_description():
     landing_planner = Node(
         package='landing_planner',
         executable='landing_planner',
-        name='landing_planner',
+        name='LPla',
         output='screen',
         parameters=[
             {'dimension': 2},
-            {'frequency': 20.0}
+            {'landing_offset': 1.0}
         ],
         arguments=["--ros-args", "--log-level", "info"]
     )
+    ld.add_action(landing_planner)
 
     # Mission director
     mission_director = Node(
         package='mission_director',
-        executable='mission_director_flight',
-        name='mission_director_flight',
+        executable=md_name,
+        name='MDir',
         output='screen',
         parameters=[
             {'frequency': major_frequency},

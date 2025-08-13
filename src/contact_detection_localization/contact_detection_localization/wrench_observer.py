@@ -48,11 +48,12 @@ class ExternalWrenchObserver(Node):
         self.servo_state = None
 
         # Publisher
-        self.publisher_loa_direction = self.create_publisher(Vector3Stamped, '/contact/out/direction', 10)
-        self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/point', 10)
+        self.publisher_loa_direction = self.create_publisher(Vector3Stamped, '/contact/out/loa_direction', 10)
+        self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/loa_point', 10)
         self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
         self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
-        self.publisher_contact_point = self.create_publisher(PointStamped, '/contact/out/contact_point', 10)
+        self.publisher_contact_point_coords = self.create_publisher(PointStamped, '/contact/out/contact_point_coords', 10)
+        self.publisher_contact_point = self.create_publisher(Int32, '/contact/out/contact_point',10)
 
         
         # Model parameters
@@ -100,13 +101,13 @@ class ExternalWrenchObserver(Node):
         leg_y = 0.078 # [m] Leg contact point distance along body y-axis
         leg_z = 0.09 # [m] Leg contact point distance along body z-axis
         self.contact_point_candidates = {
-            'right_arm': np.array([0.0, 0.0, 0.0]),
-            'left_arm': np.array([0.0, 0.0, 0.0]),
-            'right_front_leg': np.array([leg_x, leg_y, leg_z]),
-            'right_back_leg': np.array([-leg_x, leg_y, leg_z]),
-            'left_back_leg': np.array([-leg_x, -leg_y, leg_z]),
-            'left_front_leg': np.array([leg_x, -leg_y, leg_z]),
-            'center': np.array([0., 0., leg_z])
+            'right_arm': {'coords': np.array([0.0, 0.0, 0.0]), 'index': 1},
+            'left_arm': {'coords': np.array([0.0, 0.0, 0.0]), 'index': 2},
+            'right_front_leg': {'coords': np.array([leg_x, leg_y, leg_z]), 'index': 3},
+            'right_back_leg': {'coords': np.array([-leg_x, leg_y, leg_z]), 'index': 4},
+            'left_back_leg': {'coords': np.array([-leg_x, -leg_y, leg_z]), 'index': 5},
+            'left_front_leg': {'coords': np.array([leg_x, -leg_y, leg_z]), 'index': 6},
+            'center': {'coords': np.array([0., 0., leg_z]), 'index': 9}
         }
         # Timer -- always last
         self.previous_time = datetime.datetime.now()
@@ -127,7 +128,7 @@ class ExternalWrenchObserver(Node):
 
     def wrench_observer(self):
         dt = (datetime.datetime.now() - self.previous_time).total_seconds() # Get time difference since last
-        self.get_logger().info(f'dt [sec]: {dt}')
+        # self.get_logger().info(f'dt [sec]: {dt}')
         self.previous_time = datetime.datetime.now()
 
         # Force observer
@@ -139,7 +140,7 @@ class ExternalWrenchObserver(Node):
         # Update force by propagating force_dot and EWMA smoothing
         self.most_recent_force_estimate = (self.alpha_force * (self.most_recent_force_estimate + dt * force_dot) +
             (1. - self.alpha_force)*self.most_recent_force_estimate)
-        self.publisher_estimator_force(self.most_recent_force_estimate)
+        self.publish_estimated_force(self.most_recent_force_estimate)
 
         # Torque observer
         # Calculate observed angular momentum
@@ -156,13 +157,13 @@ class ExternalWrenchObserver(Node):
         self.most_recent_torque_estimate = (self.alpha_torque * current_torque_estimate +
             (1. - self.alpha_torque) * self.most_recent_torque_estimate)
         self.publish_estimated_torque(self.most_recent_torque_estimate)
-        self.get_logger().info(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]')
-        self.get_logger().info(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]')
+        self.get_logger().debug(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]')
+        self.get_logger().debug(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]')
 
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
         if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold:
-            self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}')
+            self.get_logger().debug(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}')
             self.contact = True
         else:
             self.contact = False
@@ -175,8 +176,8 @@ class ExternalWrenchObserver(Node):
 
     def compute_line_of_action(self):
         """
-        Compute the line of action of an external contact force given
-        force and moment residuals.
+        Compute the line of action of an external contact force in the body frame
+        given force and moment residuals.
                 
         Returns:
             r0 : (3,) np.array
@@ -198,8 +199,8 @@ class ExternalWrenchObserver(Node):
         point_on_line = np.cross(self.most_recent_torque_estimate, self.most_recent_force_estimate) / (F_norm**2)
 
         self.get_logger().info(f'LOA found! Point: [{point_on_line[0]:.2f}, {point_on_line[1]:.2f}, {point_on_line[2]:.2f}], dir [{direction[0]:.2f}, {direction[1]:.2f}, {direction[2]:.2f}]')
-        self.publisher_loa_direction(direction)
-        self.publisher_loa_point(point_on_line)
+        self.publish_loa_direction(direction)
+        self.publish_loa_point(point_on_line)
         return point_on_line, direction, True
     
     def select_contact_point(self, point_on_line, direction_vector):
@@ -211,16 +212,17 @@ class ExternalWrenchObserver(Node):
         best_point = None
         best_distance = np.inf
 
-        for point, coordinates in self.contact_point_candidates.items():
-            diff = coordinates - point_on_line
+        for point_name, data in self.contact_point_candidates.items():
+            diff = data['coords'] - point_on_line
             dist = np.linalg.norm(np.cross(diff, direction_vector))  # perpendicular distance
             if dist < best_distance:
                 best_distance = dist
-                best_point = point
+                best_point = point_name
 
         if best_distance < self.contact_point_proximity_threshold:
-            self.get_logger().info(f'Found contact point: {point}')
-            self.publish_contact_point(point)
+            self.get_logger().info(f'Found contact point: {point_name}')
+            self.publish_contact_point_coords(self.contact_point_candidates[point_name]['coords'])
+            self.publish_contact_point(self.contact_point_candidates[point_name]['index'])
             return best_point, best_distance
         else:
             self.get_logger().info(f'No candidate point within proximity. Distance: {best_distance}, threshold: {self.contact_point_proximity_threshold}')
@@ -229,8 +231,8 @@ class ExternalWrenchObserver(Node):
     def update_ee_locations(self):
         FK_right = self.position_forward_kinematics(self.servo_state.position[0], self.servo_state.position[1], self.servo_state.position[2])
         FK_left = self.position_forward_kinematics(self.servo_state.position[3], self.servo_state.position[4], self.servo_state.position[5])
-        self.contact_point_candidates['right_arm'] = np.array(FK_right)
-        self.contact_point_candidates['left_arm'] = np.array(FK_left)
+        self.contact_point_candidates['right_arm']['coords'] = np.array(FK_right)
+        self.contact_point_candidates['left_arm']['coords'] = np.array(FK_left)
 
     def publish_loa_direction(self, direction):
         msg = Vector3Stamped()
@@ -264,13 +266,18 @@ class ExternalWrenchObserver(Node):
         msg.vector.z = torque[2]
         self.publisher_estimator_torque.publish(msg)
 
-    def publish_contact_point(self, point):
+    def publish_contact_point_coords(self, point):
         msg = PointStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.point.x = point[0]
         msg.point.y = point[1]
         msg.point.z = point[2]
-        self.publisher_contact_point.publish(msg)        
+        self.publisher_contact_point_coords.publish(msg)
+
+    def publish_contact_point(self, int):
+        msg = Int32()
+        msg.data = int
+        self.publisher_contact_point.publish(msg)
 
     def sensor_callback(self, msg):
         self.sensor_acceleration = np.array(msg.accelerometer_m_s2)
