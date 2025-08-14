@@ -24,6 +24,7 @@ setup(
             'mission_director_flight=mission_director.md_flight:main',
             'mission_director_suspend=mission_director.md_suspend:main',
             'mission_director_flight_mission=mission_director.md_flight_mission:main',
+            'mission_director_wrench_test=mission_director.md_flight_wrench_test:main',
         ],
     },
 )

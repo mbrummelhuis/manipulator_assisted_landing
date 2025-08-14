@@ -157,13 +157,13 @@ class ExternalWrenchObserver(Node):
         self.most_recent_torque_estimate = (self.alpha_torque * current_torque_estimate +
             (1. - self.alpha_torque) * self.most_recent_torque_estimate)
         self.publish_estimated_torque(self.most_recent_torque_estimate)
-        self.get_logger().debug(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]')
-        self.get_logger().debug(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]')
+        self.get_logger().info(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]', throttle_duration_sec=1)
+        self.get_logger().info(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
 
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
         if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold:
-            self.get_logger().debug(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}')
+            self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}', throttle_duration_sec=1)
             self.contact = True
         else:
             self.contact = False
@@ -198,7 +198,7 @@ class ExternalWrenchObserver(Node):
         # Particular point on the line closest to r_CoM
         point_on_line = np.cross(self.most_recent_torque_estimate, self.most_recent_force_estimate) / (F_norm**2)
 
-        self.get_logger().info(f'LOA found! Point: [{point_on_line[0]:.2f}, {point_on_line[1]:.2f}, {point_on_line[2]:.2f}], dir [{direction[0]:.2f}, {direction[1]:.2f}, {direction[2]:.2f}]')
+        #self.get_logger().info(f'LOA found! Point: [{point_on_line[0]:.2f}, {point_on_line[1]:.2f}, {point_on_line[2]:.2f}], dir [{direction[0]:.2f}, {direction[1]:.2f}, {direction[2]:.2f}]')
         self.publish_loa_direction(direction)
         self.publish_loa_point(point_on_line)
         return point_on_line, direction, True
@@ -207,7 +207,7 @@ class ExternalWrenchObserver(Node):
         if self.servo_state is not None:
             self.update_ee_locations()
         else:
-            self.get_logger().warn(f'No servo state, cannot compute forward kinematics!')
+            self.get_logger().warn(f'No servo state, cannot compute forward kinematics!', throttle_duration_sec=1)
             return None, np.inf
         best_point = None
         best_distance = np.inf
@@ -220,7 +220,7 @@ class ExternalWrenchObserver(Node):
                 best_point = point_name
 
         if best_distance < self.contact_point_proximity_threshold:
-            self.get_logger().info(f'Found contact point: {point_name}')
+            #self.get_logger().info(f'Found contact point: {point_name}')
             self.publish_contact_point_coords(self.contact_point_candidates[point_name]['coords'])
             self.publish_contact_point(self.contact_point_candidates[point_name]['index'])
             return best_point, best_distance

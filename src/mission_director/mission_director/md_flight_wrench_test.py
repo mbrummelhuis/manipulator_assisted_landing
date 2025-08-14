@@ -32,8 +32,6 @@ class MissionDirectorPy(Node):
         self.declare_parameter('frequency', 25.0)
         self.declare_parameter('position_clip', 0.0)
         self.declare_parameter('takeoff_altitude', -1.5)
-        self.declare_parameter('probing_speed', 0.05)
-        self.declare_parameter('probing_direction', [0., 0., 1.])
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -55,10 +53,9 @@ class MissionDirectorPy(Node):
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
 
-        # Landing planner output
-        self.subscriber_contact_point = self.create_subscription(Int32, '/contact/out/contact_point', self.contact_point_callback, 10)
-        self.subscriber_landing_point = self.create_subscription(TrajectorySetpoint, '/landing/out/start_location', self.landing_point_callback, 10)
-        self.subscriber_landing_manipulator = self.create_subscription(TwistStamped, '/landing/out/manipulator', self.landing_manipulator_callback, 10)
+        # Manipulator interface
+        self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
+        self.publisher_manipulator_velocities = self.create_publisher(TwistStamped, '/manipulator/in/velocity', 10)
 
         # Mission director in/output
         self.subscriber_input_state = self.create_subscription(Int32, '/md/input', self.input_state_callback, 10)
@@ -90,16 +87,6 @@ class MissionDirectorPy(Node):
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
-        
-        self.manipulator1_landing_position = None
-        self.manipulator2_landing_position = None
-        self.landing_start_position = None
-
-        self.probing_direction = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
-        self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
-        self.get_logger().info(f'probing downward speed {self.probing_speed}')
-        self.workspace_radius = L_1+L_2+L_3
-        self.get_logger().info(f'Maximum workspace radius {self.workspace_radius}')
 
         self.vehicle_local_position = VehicleLocalPosition()
         self.state_start_time = datetime.datetime.now()
@@ -138,11 +125,11 @@ class MissionDirectorPy(Node):
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, -1.6,
-                    -pi/3, 0.0, 1.6)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 self.publishMDState(2)
                 if self.first_state_loop:
-                    self.get_logger().info('Default config -- Suspend drone and continue')
+                    self.get_logger().info('Moving arm to default configuration')
                     self.first_state_loop = False
 
                 if self.input_state == 1:
@@ -189,7 +176,10 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
-                if (datetime.datetime.now() - self.state_start_time).seconds > 100 or self.input_state == 1:
+                if self.counter%(5*int(self.frequency))==0:
+                    self.get_logger().info(f'Hover mode. Publish input state 1 to land.')
+
+                if self.input_state == 1:
                     self.transition_state('land')          
  
             case('land'):
@@ -216,22 +206,6 @@ class MissionDirectorPy(Node):
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
                 self.transition_state('emergency')
-
-    def get_align_heading(self):
-        # Normalize the probing direction vector and find horizontal projection
-        normalized_probing_direction = self.probing_direction/np.linalg.norm(self.probing_direction)
-        horizontal_projection = np.array([normalized_probing_direction[0], normalized_probing_direction[1]])
-        # If the direction is straight up or down, return own heading
-        if np.linalg.norm(horizontal_projection) < 1e-3:
-            return self.vehicle_local_position.heading
-        else:
-            vehicle_y_in_world = np.array([np.sin(self.vehicle_local_position.heading), np.cos(self.vehicle_local_position.heading)])
-            positive_heading = self.signed_angle_2d(vehicle_y_in_world, horizontal_projection)
-            negative_heading = self.signed_angle_2d(-vehicle_y_in_world, horizontal_projection)
-            if abs(positive_heading)>=abs(negative_heading):
-                return negative_heading
-            elif abs(negative_heading)>abs(positive_heading):
-                return positive_heading
 
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()
@@ -414,36 +388,6 @@ class MissionDirectorPy(Node):
         self.arm_2_effort[0] = msg.effort[3] # Pivot
         self.arm_2_effort[1] = msg.effort[4] # Shoulder
         self.arm_2_effort[2] = msg.effort[5] # Elbow
-
-    def landing_point_callback(self, msg):
-        self.landing_start_position = msg
-
-    def landing_manipulator_callback(self, msg):
-        self.manipulator1_landing_position = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        self.manipulator2_landing_position = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
-    
-    def contact_point_callback(self, msg):
-        self.most_recent_contact_point = msg.data
-        self.contact_counter += 1
-
-    def Rx(self, angle:float, vector:np.array) -> np.array:
-        return np.array([[1., 0., 0.],
-                         [0., np.cos(angle), -np.sin(angle)],
-                         [0., np.sin(angle), np.cos(angle)]]) @ vector
-
-    def Rz(self,angle:float, vector:np.array) -> np.array:
-        return np.array([[np.cos(angle), -np.sin(angle), 0.],
-        [np.sin(angle), np.cos(angle), 0.],
-        [0., 0., 1.]]) @ vector
-
-    def R2(self, angle:float, vector:np.array) -> np.array:
-        return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]) @ vector
-
-    def signed_angle_2d(self, v1:np.array, v2:np.array) -> float:
-        # Normalize
-        v1_u = v1 / np.linalg.norm(v1)
-        v2_u = v2 / np.linalg.norm(v2)
-        return np.arctan2(np.cross(v1_u, v2_u))
 
     def transition_state(self, new_state='end'):
         if self.input_state != 0:
