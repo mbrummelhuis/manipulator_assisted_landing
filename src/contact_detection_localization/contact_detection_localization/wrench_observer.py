@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+from rcl_interfaces.msg import SetParametersResult
+from rclpy.parameter import Parameter
 
 import numpy as np
 import datetime
@@ -28,7 +30,20 @@ class ExternalWrenchObserver(Node):
         self.declare_parameter('force_contact_threshold', 1.0)
         self.declare_parameter('torque_contact_threshold', 1.0)
         self.declare_parameter('alpha_motor_inputs', 0.7)
-        self.declare_parameter('contact_force_proximity_threshold', 0.2)
+        self.declare_parameter('contact_point_proximity_threshold', 0.2)
+
+        self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
+        self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
+        self.gain_torque = self.get_parameter('gain_torque').get_parameter_value().double_value * np.eye(3)
+        self.alpha_torque = self.get_parameter('alpha_torque').get_parameter_value().double_value
+        self.alpha_motor_inputs = self.get_parameter('alpha_motor_inputs').get_parameter_value().double_value
+        self.alpha_angular_velocity = self.get_parameter('alpha_angular_velocity').get_parameter_value().double_value
+        self.force_contact_threshold = self.get_parameter('force_contact_threshold').get_parameter_value().double_value
+        self.torque_contact_threshold = self.get_parameter('torque_contact_threshold').get_parameter_value().double_array
+        self.contact_point_proximity_threshold = self.get_parameter('contact_point_proximity_threshold').get_parameter_value().double_value
+        
+        # Register parameter change callback
+        self.add_on_set_parameters_callback(self.param_callback)
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -63,15 +78,12 @@ class ExternalWrenchObserver(Node):
         # Model parameters
         self.thrust_coefficient = 18.538 # Obtained through experimental data previous value 19.468
         self.propeller_incline_angle = 5 # [deg] propeller incline in degreess
-        self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
         self.model_mass = 3.701 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
         self.linear_allocation_matrix = np.array([[-np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
                                                  [-np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
                                                  [-np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle))]])
-        self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
 
-        self.gain_torque = self.get_parameter('gain_torque').get_parameter_value().double_value * np.eye(3)
         self.inertia = np.array([[0.071, -1.712e-5, -5.928e-6],
                                 [-1.712e-5, 0.059, -1.448e-5],
                                 [-5.928e-6, -1.448e-5, 0.121]]) # [kgm2]
@@ -83,24 +95,22 @@ class ExternalWrenchObserver(Node):
         self.rotational_allocation_matrix = np.array([[-arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_y*np.cos(np.deg2rad(self.propeller_incline_angle))], # Roll moment
                                                      [arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle))], # Pitch moment
                                                      [np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff]]) # Yaw moment
-        self.alpha_torque = self.get_parameter('alpha_torque').get_parameter_value().double_value
 
         self.R_accelerometer = np.array([[-1., 0., 0.],
                                          [0., -1., 0.],
                                          [0., 0., -1.]])
         
-        self.alpha_motor = self.get_parameter('alpha_motor_inputs').get_parameter_value().double_value
+
 
         # Initial values for updating member variables
         self.most_recent_force_estimate = np.array([0., 0., 0.])
         self.most_recent_torque_estimate = np.array([0., 0., 0.])
         self.momentum_integral = np.array([0., 0., 0.])
-        self.alpha_angular_velocity = self.get_parameter('alpha_angular_velocity').get_parameter_value().double_value
+
 
         # Contact detection and localization
         self.contact = False
-        self.force_contact_threshold = self.get_parameter('force_contact_threshold').get_parameter_value().double_value
-        self.contact_point_proximity_threshold = self.get_parameter('contact_force_proximity_threshold').get_parameter_value().double_value
+
 
         # Candidate contact points
         leg_x = 0.17 # [m] Leg contact point distance along body x-axis
@@ -123,6 +133,7 @@ class ExternalWrenchObserver(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
 
     def timer_callback(self):
+
         #self.get_logger().info(f'Running wrench observer. {self.sensor_acceleration}, {self.sensor_angular_velocity}, {self.actuator_thrust}')
         if self.sensor_acceleration is None or self.sensor_angular_velocity is None or self.actuator_thrust is None:
             return
@@ -302,14 +313,49 @@ class ExternalWrenchObserver(Node):
         self.sensor_angular_velocity = self.alpha_angular_velocity * np.array(msg.gyro_rad) + (1.-self.alpha_angular_velocity)*self.sensor_angular_velocity
 
     def actuator_callback(self, msg):
-        smoothed_0 = self.alpha_motor*msg.control[0]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[0]
-        smoothed_1 = self.alpha_motor*msg.control[1]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[1]
-        smoothed_2 = self.alpha_motor*msg.control[2]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[2]
-        smoothed_3 = self.alpha_motor*msg.control[3]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[3]
+        smoothed_0 = self.alpha_motor_inputs*msg.control[0]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[0]
+        smoothed_1 = self.alpha_motor_inputs*msg.control[1]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[1]
+        smoothed_2 = self.alpha_motor_inputs*msg.control[2]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[2]
+        smoothed_3 = self.alpha_motor_inputs*msg.control[3]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[3]
         self.actuator_thrust = np.array([smoothed_0, smoothed_1, smoothed_2, smoothed_3])
 
     def servo_callback(self, msg):
         self.servo_state = msg
+    
+    def param_callback(self, params):
+        """
+        Called whenever one or more parameters are set via `ros2 param set`
+        """
+        for param in params:
+            if param.name == 'gain_force' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.gain_force} to {param.value}")
+                self.gain_force = param.value
+            elif param.name == 'alpha_force' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.alpha_force} to {param.value}")
+                self.alpha_force = param.value
+            elif param.name == 'gain_torque' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.gain_torque} to {param.value}")
+                self.gain_torque = param.value
+            elif param.name == 'alpha_torque' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.alpha_torque} to {param.value}")
+                self.alpha_torque = param.value
+            elif param.name == 'alpha_angular_velocity' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.alpha_angular_velocity} to {param.value}")
+                self.alpha_angular_velocity = param.value
+            elif param.name == 'force_contact_threshold' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.force_contact_threshold} to {param.value}")
+                self.force_contact_threshold = param.value
+            elif param.name == 'torque_contact_threshold' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.torque_contact_threshold} to {param.value}")
+                self.torque_contact_threshold = param.value
+            elif param.name == 'contact_force_proximity_threshold' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.contact_force_proximity_threshold} to {param.value}")
+                self.contact_force_proximity_threshold = param.value
+            elif param.name == 'alpha_motor_inputs' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.alpha_motor_inputs} to {param.value}")
+                self.alpha_motor_inputs = param.value
+        # Returning successful result allows the change
+        return SetParametersResult(successful=True)
 
     def position_forward_kinematics(self, q_1, q_2, q_3):
         x_BS = -L_2*np.sin(q_2) - L_3*np.sin(q_2)*np.cos(q_3)
