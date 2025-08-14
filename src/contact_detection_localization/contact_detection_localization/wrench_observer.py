@@ -76,7 +76,7 @@ class ExternalWrenchObserver(Node):
 
         
         # Model parameters
-        self.thrust_coefficient = 19. # Obtained through experimental data previous value 19.468 18.538
+        self.thrust_coefficient = 19.5 # Obtained through experimental data previous value 19.468 18.538
         self.propeller_incline_angle = 5. # [deg] propeller incline in degreess
         self.model_mass = 3.701 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
@@ -100,17 +100,13 @@ class ExternalWrenchObserver(Node):
                                          [0., -1., 0.],
                                          [0., 0., -1.]])
         
-
-
         # Initial values for updating member variables
         self.most_recent_force_estimate = np.array([0., 0., 0.])
         self.most_recent_torque_estimate = np.array([0., 0., 0.])
         self.momentum_integral = np.array([0., 0., 0.])
 
-
         # Contact detection and localization
         self.contact = False
-
 
         # Candidate contact points
         leg_x = 0.17 # [m] Leg contact point distance along body x-axis
@@ -123,7 +119,7 @@ class ExternalWrenchObserver(Node):
             'right_back_leg': {'coords': np.array([-leg_x, leg_y, leg_z]), 'index': 4},
             'left_back_leg': {'coords': np.array([-leg_x, -leg_y, leg_z]), 'index': 5},
             'left_front_leg': {'coords': np.array([leg_x, -leg_y, leg_z]), 'index': 6},
-            'center': {'coords': np.array([0., 0., leg_z]), 'index': 9}
+            'center': {'coords': np.array([0., 0., leg_z]), 'index': 7}
         }
         # Timer -- always last
         self.previous_time = datetime.datetime.now()
@@ -149,7 +145,7 @@ class ExternalWrenchObserver(Node):
         self.previous_time = datetime.datetime.now()
 
         # Force observer
-        force_dot = self.gain_force @ ( # TODO rotate 
+        force_dot = self.gain_force @ (
             self.model_mass * self.sensor_acceleration - # Add gravity here in the math in the paper
             self.linear_allocation_matrix @ self.actuator_thrust - 
             self.most_recent_force_estimate)
@@ -170,7 +166,6 @@ class ExternalWrenchObserver(Node):
         # Torque estimate is the difference between measured and model, with a gain
         current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral)
         # self.get_logger().info(f'Torque estimate [{current_torque_estimate[0]:.2f}, {current_torque_estimate[1]:.2f}, {current_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
-        
         # self.get_logger().info(f'Actuator moments: {(self.rotational_allocation_matrix @ self.actuator_thrust)[0]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[1]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[2]:.2f}')
 
         # EWMA smoothing
@@ -247,6 +242,7 @@ class ExternalWrenchObserver(Node):
             return best_point, best_distance
         else:
             self.get_logger().info(f'No candidate point within proximity. Distance: {best_distance}, threshold: {self.contact_point_proximity_threshold}')
+            self.publish_contact_point(-1)
             return None, best_distance
 
     def update_ee_locations(self):
