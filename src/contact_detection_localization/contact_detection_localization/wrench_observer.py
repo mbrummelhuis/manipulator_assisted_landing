@@ -20,13 +20,15 @@ class ExternalWrenchObserver(Node):
 
         # Parameters
         self.declare_parameter('frequency', 10.0)
-        self.declare_parameter('gain_force', 1.0)
+        self.declare_parameter('gain_force', 1.5)
         self.declare_parameter('alpha_force', 1.0)
-        self.declare_parameter('gain_torque', 1.0)
+        self.declare_parameter('gain_torque', 3.0)
         self.declare_parameter('alpha_torque', 1.0)
-        self.declare_parameter('alpha_angular_velocity', 1.0)
+        self.declare_parameter('alpha_angular_velocity', 0.7)
         self.declare_parameter('force_contact_threshold', 1.0)
-        self.declare_parameter('contact_force_proximity_threshold', 0.1)
+        self.declare_parameter('torque_contact_threshold', 1.0)
+        self.declare_parameter('alpha_motor_inputs', 0.7)
+        self.declare_parameter('contact_force_proximity_threshold', 0.2)
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -53,6 +55,7 @@ class ExternalWrenchObserver(Node):
         self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
         self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
         self.publisher_estimator_force_magnitude = self.create_publisher(Float64, '/contact/out/force_magnitude', 10)
+        self.publisher_estimator_torque_magnitude = self.create_publisher(Float64, '/contact/out/torque_magnitude', 10)
         self.publisher_contact_point_coords = self.create_publisher(PointStamped, '/contact/out/contact_point_coords', 10)
         self.publisher_contact_point = self.create_publisher(Int32, '/contact/out/contact_point',10)
 
@@ -85,6 +88,8 @@ class ExternalWrenchObserver(Node):
         self.R_accelerometer = np.array([[-1., 0., 0.],
                                          [0., -1., 0.],
                                          [0., 0., -1.]])
+        
+        self.alpha_motor = self.get_parameter('alpha_motor_inputs').get_parameter_value().double_value
 
         # Initial values for updating member variables
         self.most_recent_force_estimate = np.array([0., 0., 0.])
@@ -142,6 +147,7 @@ class ExternalWrenchObserver(Node):
         self.most_recent_force_estimate = (self.alpha_force * (self.most_recent_force_estimate + dt * force_dot) +
             (1. - self.alpha_force)*self.most_recent_force_estimate)
         self.publish_estimated_force(self.most_recent_force_estimate)
+        self.publish_estimated_force_magnitude(np.linalg.norm(self.most_recent_force_estimate))
 
         # Torque observer
         # Calculate observed angular momentum
@@ -158,12 +164,13 @@ class ExternalWrenchObserver(Node):
         self.most_recent_torque_estimate = (self.alpha_torque * current_torque_estimate +
             (1. - self.alpha_torque) * self.most_recent_torque_estimate)
         self.publish_estimated_torque(self.most_recent_torque_estimate)
+        self.publish_estimated_torque_magnitude(np.linalg.norm(self.most_recent_torque_estimate))
         self.get_logger().info(f'Force estimate: [{self.most_recent_force_estimate[0]:.2f}, {self.most_recent_force_estimate[1]:.2f}, {self.most_recent_force_estimate[2]:.2f}][N]', throttle_duration_sec=1)
         self.get_logger().info(f'Torque estimate [{self.most_recent_torque_estimate[0]:.2f}, {self.most_recent_torque_estimate[1]:.2f}, {self.most_recent_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
 
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
-        if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold:
+        if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold or np.linalg.norm(self.most_recent_torque_estimate)> self.torque_contact_threshold:
             self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}', throttle_duration_sec=1)
             self.contact = True
         else:
@@ -272,6 +279,11 @@ class ExternalWrenchObserver(Node):
         msg.vector.z = torque[2]
         self.publisher_estimator_torque.publish(msg)
 
+    def publish_estimated_torque_magnitude(self, torque_magnitude:float):
+        msg = Float64()
+        msg.data = torque_magnitude
+        self.publisher_estimator_torque_magnitude.publish(msg)
+
     def publish_contact_point_coords(self, point):
         msg = PointStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -290,7 +302,11 @@ class ExternalWrenchObserver(Node):
         self.sensor_angular_velocity = self.alpha_angular_velocity * np.array(msg.gyro_rad) + (1.-self.alpha_angular_velocity)*self.sensor_angular_velocity
 
     def actuator_callback(self, msg):
-        self.actuator_thrust = np.array([msg.control[0], msg.control[1], msg.control[2], msg.control[3]]) * self.thrust_coefficient
+        smoothed_0 = self.alpha_motor*msg.control[0]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[0]
+        smoothed_1 = self.alpha_motor*msg.control[1]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[1]
+        smoothed_2 = self.alpha_motor*msg.control[2]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[2]
+        smoothed_3 = self.alpha_motor*msg.control[3]*self.thrust_coefficient + (1.-self.alpha_motor)*self.actuator_thrust[3]
+        self.actuator_thrust = np.array([smoothed_0, smoothed_1, smoothed_2, smoothed_3])
 
     def servo_callback(self, msg):
         self.servo_state = msg

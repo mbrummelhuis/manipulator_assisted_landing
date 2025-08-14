@@ -53,6 +53,8 @@ def generate_launch_description():
             {'alpha_torque': 0.9}, # 1 is no filtering
             {'alpha_angular_velocity': 0.9},
             {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
+            {'torque_contact_threshold': 3.0}, # [Nm] net momentnecessary to conclude contact
+            {'alpha_motor_inputs': 0.8}, # 1 is no filtering
             {'contact_force_proximity_threshold': 0.1}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
