@@ -22,9 +22,9 @@ class ExternalWrenchObserver(Node):
 
         # Parameters
         self.declare_parameter('frequency', 10.0)
-        self.declare_parameter('gain_force', 1.5)
+        self.declare_parameter('gain_force', 1.0)
         self.declare_parameter('alpha_force', 1.0)
-        self.declare_parameter('gain_torque', 3.0)
+        self.declare_parameter('gain_torque', 1.0)
         self.declare_parameter('alpha_torque', 1.0)
         self.declare_parameter('alpha_angular_velocity', 0.7)
         self.declare_parameter('force_contact_threshold', 1.0)
@@ -39,7 +39,7 @@ class ExternalWrenchObserver(Node):
         self.alpha_motor_inputs = self.get_parameter('alpha_motor_inputs').get_parameter_value().double_value
         self.alpha_angular_velocity = self.get_parameter('alpha_angular_velocity').get_parameter_value().double_value
         self.force_contact_threshold = self.get_parameter('force_contact_threshold').get_parameter_value().double_value
-        self.torque_contact_threshold = self.get_parameter('torque_contact_threshold').get_parameter_value().double_array
+        self.torque_contact_threshold = self.get_parameter('torque_contact_threshold').get_parameter_value().double_value
         self.contact_point_proximity_threshold = self.get_parameter('contact_point_proximity_threshold').get_parameter_value().double_value
         
         # Register parameter change callback
@@ -163,11 +163,13 @@ class ExternalWrenchObserver(Node):
         # Torque observer
         # Calculate observed angular momentum
         current_angular_momentum = self.inertia @ self.sensor_angular_velocity
+
         # Update angular momentum model
         self.momentum_integral = self.momentum_integral + (-np.cross(self.sensor_angular_velocity, current_angular_momentum) + 
                                                            self.rotational_allocation_matrix @ self.actuator_thrust + self.most_recent_torque_estimate)
         # Torque estimate is the difference between measured and model, with a gain
         current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral)
+        # self.get_logger().info(f'Torque estimate [{current_torque_estimate[0]:.2f}, {current_torque_estimate[1]:.2f}, {current_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
         
         # self.get_logger().info(f'Actuator moments: {(self.rotational_allocation_matrix @ self.actuator_thrust)[0]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[1]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[2]:.2f}')
 
@@ -182,7 +184,7 @@ class ExternalWrenchObserver(Node):
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
         if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold or np.linalg.norm(self.most_recent_torque_estimate)> self.torque_contact_threshold:
-            self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate)}', throttle_duration_sec=1)
+            self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate):.2f}, Torque magnitude {np.linalg.norm(self.most_recent_torque_estimate):.2f}', throttle_duration_sec=1)
             self.contact = True
         else:
             self.contact = False
@@ -313,6 +315,8 @@ class ExternalWrenchObserver(Node):
         self.sensor_angular_velocity = self.alpha_angular_velocity * np.array(msg.gyro_rad) + (1.-self.alpha_angular_velocity)*self.sensor_angular_velocity
 
     def actuator_callback(self, msg):
+        if self.actuator_thrust is None:
+            self.actuator_thrust = np.array([0., 0., 0., 0.])
         smoothed_0 = self.alpha_motor_inputs*msg.control[0]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[0]
         smoothed_1 = self.alpha_motor_inputs*msg.control[1]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[1]
         smoothed_2 = self.alpha_motor_inputs*msg.control[2]*self.thrust_coefficient + (1.-self.alpha_motor_inputs)*self.actuator_thrust[2]
@@ -328,14 +332,14 @@ class ExternalWrenchObserver(Node):
         """
         for param in params:
             if param.name == 'gain_force' and param.type_ == Parameter.Type.DOUBLE:
-                self.get_logger().info(f"Param updated from {self.gain_force} to {param.value}")
-                self.gain_force = param.value
+                self.get_logger().info(f"Param updated from {self.gain_force} to {param.value* np.eye(3)}")
+                self.gain_force = param.value * np.eye(3)
             elif param.name == 'alpha_force' and param.type_ == Parameter.Type.DOUBLE:
                 self.get_logger().info(f"Param updated from {self.alpha_force} to {param.value}")
                 self.alpha_force = param.value
             elif param.name == 'gain_torque' and param.type_ == Parameter.Type.DOUBLE:
-                self.get_logger().info(f"Param updated from {self.gain_torque} to {param.value}")
-                self.gain_torque = param.value
+                self.get_logger().info(f"Param updated from {self.gain_torque} to {param.value* np.eye(3)}")
+                self.gain_torque = param.value * np.eye(3)
             elif param.name == 'alpha_torque' and param.type_ == Parameter.Type.DOUBLE:
                 self.get_logger().info(f"Param updated from {self.alpha_torque} to {param.value}")
                 self.alpha_torque = param.value
