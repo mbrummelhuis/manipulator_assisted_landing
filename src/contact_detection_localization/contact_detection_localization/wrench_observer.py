@@ -76,8 +76,8 @@ class ExternalWrenchObserver(Node):
 
         
         # Model parameters
-        self.thrust_coefficient = 18.538 # Obtained through experimental data previous value 19.468
-        self.propeller_incline_angle = 5 # [deg] propeller incline in degreess
+        self.thrust_coefficient = 19. # Obtained through experimental data previous value 19.468 18.538
+        self.propeller_incline_angle = 5. # [deg] propeller incline in degreess
         self.model_mass = 3.701 # [kg]
         self.acceleration_gravity = np.array([0., 0., 9.81])
         self.linear_allocation_matrix = np.array([[-np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle))],

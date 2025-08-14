@@ -63,7 +63,7 @@ class MissionDirectorPy(Node):
 
         # Set initial data
         self.FSM_state = 'entrypoint'
-        self.dry_test = True
+        self.dry_test = False
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
@@ -92,7 +92,6 @@ class MissionDirectorPy(Node):
         self.state_start_time = datetime.datetime.now()
         self.counter = 0
     
-
         # Timer -- always last
         self.counter = 0
         self.frequency = self.get_parameter('frequency').get_parameter_value().double_value
