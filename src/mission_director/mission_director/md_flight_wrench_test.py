@@ -132,7 +132,7 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Moving arm to default configuration')
                     self.first_state_loop = False
 
-                if self.input_state == 1:
+                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('wait_for_arm_offboard')
 
             case('wait_for_arm_offboard'):
