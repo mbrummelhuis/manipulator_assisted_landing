@@ -5,7 +5,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPo
 import numpy as np
 import datetime
 
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Float64
 from geometry_msgs.msg import PointStamped, Vector3Stamped
 from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined, ActuatorMotors
@@ -52,12 +52,13 @@ class ExternalWrenchObserver(Node):
         self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/loa_point', 10)
         self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
         self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
+        self.publisher_estimator_force_magnitude = self.create_publisher(Float64, '/contact/out/force_magnitude', 10)
         self.publisher_contact_point_coords = self.create_publisher(PointStamped, '/contact/out/contact_point_coords', 10)
         self.publisher_contact_point = self.create_publisher(Int32, '/contact/out/contact_point',10)
 
         
         # Model parameters
-        self.thrust_coefficient = 19.468 # Obtained through experimental data
+        self.thrust_coefficient = 18.538 # Obtained through experimental data previous value 19.468
         self.propeller_incline_angle = 5 # [deg] propeller incline in degreess
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
         self.model_mass = 3.701 # [kg]
@@ -257,6 +258,11 @@ class ExternalWrenchObserver(Node):
         msg.vector.y = force[1]
         msg.vector.z = force[2]
         self.publisher_estimator_force.publish(msg)
+
+    def publish_estimated_force_magnitude(self, force_magnitude:float):
+        msg = Float64()
+        msg.data = force_magnitude
+        self.publisher_estimator_force_magnitude.publish(msg)
 
     def publish_estimated_torque(self, torque):
         msg = Vector3Stamped()

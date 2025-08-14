@@ -48,10 +48,10 @@ def generate_launch_description():
         parameters=[
             {'frequency': 50.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
-            {'alpha_force': 1.0}, # 1 is no filtering
+            {'alpha_force': 0.9}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
-            {'alpha_torque': 1.0}, # 1 is no filtering
-            {'alpha_angular_acceleration': 1.0},
+            {'alpha_torque': 0.9}, # 1 is no filtering
+            {'alpha_angular_velocity': 0.9},
             {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
             {'contact_force_proximity_threshold': 0.1}
         ],
