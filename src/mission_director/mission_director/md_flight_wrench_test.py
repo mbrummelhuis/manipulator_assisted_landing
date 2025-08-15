@@ -197,6 +197,9 @@ class MissionDirectorPy(Node):
                 self.publishMDState(23)
                 self.get_logger().info('Done')
                 self.disarmVehicle()
+                self.move_arms_to_joint_position(
+                    1.75, 0.0, -1.82,
+                    -1.75, 0.0, 1.82)
 
             case('emergency'):
                 self.move_arms_to_joint_position(
