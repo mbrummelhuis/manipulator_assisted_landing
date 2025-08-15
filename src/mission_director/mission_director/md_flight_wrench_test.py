@@ -175,15 +175,14 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('move_arms_to_start_position')
+                    self.transition_state('hover')
 
             case('hover'):
                 self.publishMDState(5)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
-                if self.counter%(5*int(self.frequency))==0:
-                    self.get_logger().info(f'Hover mode. Publish input state 1 to land.')
+                self.get_logger().info(f'Hover mode. Publish input state 1 to land.', throttle_duration_sec=5)
 
                 if self.input_state == 1:
                     self.transition_state('land')          

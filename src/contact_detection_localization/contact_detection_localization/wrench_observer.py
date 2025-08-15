@@ -27,6 +27,7 @@ class ExternalWrenchObserver(Node):
         self.declare_parameter('gain_torque', 1.0)
         self.declare_parameter('alpha_torque', 1.0)
         self.declare_parameter('alpha_angular_velocity', 0.7)
+        self.declare_parameter('alpha_accelerometer', 0.7)
         self.declare_parameter('force_contact_threshold', 1.0)
         self.declare_parameter('torque_contact_threshold', 1.0)
         self.declare_parameter('alpha_motor_inputs', 0.7)
@@ -38,6 +39,7 @@ class ExternalWrenchObserver(Node):
         self.alpha_torque = self.get_parameter('alpha_torque').get_parameter_value().double_value
         self.alpha_motor_inputs = self.get_parameter('alpha_motor_inputs').get_parameter_value().double_value
         self.alpha_angular_velocity = self.get_parameter('alpha_angular_velocity').get_parameter_value().double_value
+        self.alpha_accelerometer = self.get_parameter('alpha_accelerometer').get_parameter_value().double_value
         self.force_contact_threshold = self.get_parameter('force_contact_threshold').get_parameter_value().double_value
         self.torque_contact_threshold = self.get_parameter('torque_contact_threshold').get_parameter_value().double_value
         self.contact_point_proximity_threshold = self.get_parameter('contact_point_proximity_threshold').get_parameter_value().double_value
@@ -69,10 +71,16 @@ class ExternalWrenchObserver(Node):
         self.publisher_loa_point = self.create_publisher(PointStamped, '/contact/out/loa_point', 10)
         self.publisher_estimator_force = self.create_publisher(Vector3Stamped, '/contact/out/estimated_force', 10)
         self.publisher_estimator_torque = self.create_publisher(Vector3Stamped, '/contact/out/estimated_torque', 10)
+
         self.publisher_estimator_force_magnitude = self.create_publisher(Float64, '/contact/out/force_magnitude', 10)
         self.publisher_estimator_torque_magnitude = self.create_publisher(Float64, '/contact/out/torque_magnitude', 10)
         self.publisher_contact_point_coords = self.create_publisher(PointStamped, '/contact/out/contact_point_coords', 10)
         self.publisher_contact_point = self.create_publisher(Int32, '/contact/out/contact_point',10)
+
+        self.publisher_acclero_smoothed = self.create_publisher(Vector3Stamped, '/contact/log/accelero_smoothed', 10)
+        self.publisher_gyro_smoothed = self.create_publisher(Vector3Stamped, '/contact/log/gyro_smoothed', 10)
+        self.publisher_force_unsmoothed = self.create_publisher(Vector3Stamped, '/contact/log/force_unsmoothed', 10)
+        self.publisher_torque_unsmoothed = self.create_publisher(Vector3Stamped, '/contact/log/torque_unsmoothed', 10)
 
         
         # Model parameters
@@ -149,9 +157,11 @@ class ExternalWrenchObserver(Node):
             self.model_mass * self.sensor_acceleration - # Add gravity here in the math in the paper
             self.linear_allocation_matrix @ self.actuator_thrust - 
             self.most_recent_force_estimate)
+        current_force_estimate = self.most_recent_force_estimate + dt * force_dot
+        self.publish_unsmoothed_force(current_force_estimate)
 
         # Update force by propagating force_dot and EWMA smoothing
-        self.most_recent_force_estimate = (self.alpha_force * (self.most_recent_force_estimate + dt * force_dot) +
+        self.most_recent_force_estimate = (self.alpha_force * (current_force_estimate) +
             (1. - self.alpha_force)*self.most_recent_force_estimate)
         self.publish_estimated_force(self.most_recent_force_estimate)
         self.publish_estimated_force_magnitude(np.linalg.norm(self.most_recent_force_estimate))
@@ -167,7 +177,8 @@ class ExternalWrenchObserver(Node):
         current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral)
         # self.get_logger().info(f'Torque estimate [{current_torque_estimate[0]:.2f}, {current_torque_estimate[1]:.2f}, {current_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
         # self.get_logger().info(f'Actuator moments: {(self.rotational_allocation_matrix @ self.actuator_thrust)[0]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[1]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[2]:.2f}')
-
+        self.publish_unsmoothed_torque(current_torque_estimate)
+        
         # EWMA smoothing
         self.most_recent_torque_estimate = (self.alpha_torque * current_torque_estimate +
             (1. - self.alpha_torque) * self.most_recent_torque_estimate)
@@ -306,9 +317,45 @@ class ExternalWrenchObserver(Node):
         msg.data = int
         self.publisher_contact_point.publish(msg)
 
+    def publish_unsmoothed_force(self, force):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = force[0]
+        msg.vector.y = force[1]
+        msg.vector.z = force[2]
+        self.publisher_force_unsmoothed.publish(msg)
+
+    def publish_unsmoothed_torque(self, torque):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = torque[0]
+        msg.vector.y = torque[1]
+        msg.vector.z = torque[2]
+        self.publisher_torque_unsmoothed.publish(msg)
+
+    def publish_smoothed_accelero(self, accelero):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = accelero[0]
+        msg.vector.y = accelero[1]
+        msg.vector.z = accelero[2]
+        self.publisher_acclero_smoothed.publish(msg)
+
+    def publish_smoothed_gyro(self, gyro):
+        msg = Vector3Stamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.vector.x = gyro[0]
+        msg.vector.y = gyro[1]
+        msg.vector.z = gyro[2]
+        self.publisher_gyro_smoothed.publish(msg)
+
+    # CALLBACKS
     def sensor_callback(self, msg):
-        self.sensor_acceleration = np.array(msg.accelerometer_m_s2)
+        self.sensor_acceleration = self.alpha_accelerometer * np.array(msg.accelerometer_m_s2) + (1.-self.alpha_accelerometer)*self.sensor_acceleration
         self.sensor_angular_velocity = self.alpha_angular_velocity * np.array(msg.gyro_rad) + (1.-self.alpha_angular_velocity)*self.sensor_angular_velocity
+        # Republish the smoothed signals for checking
+        self.publish_smoothed_accelero(self.sensor_acceleration)
+        self.publish_smoothed_gyro(self.sensor_angular_velocity)
 
     def actuator_callback(self, msg):
         if self.actuator_thrust is None:
@@ -341,7 +388,9 @@ class ExternalWrenchObserver(Node):
                 self.alpha_torque = param.value
             elif param.name == 'alpha_angular_velocity' and param.type_ == Parameter.Type.DOUBLE:
                 self.get_logger().info(f"Param updated from {self.alpha_angular_velocity} to {param.value}")
-                self.alpha_angular_velocity = param.value
+            elif param.name == 'alpha_accelerometer' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.alpha_accelerometer} to {param.value}")
+                self.alpha_accelerometer = param.value
             elif param.name == 'force_contact_threshold' and param.type_ == Parameter.Type.DOUBLE:
                 self.get_logger().info(f"Param updated from {self.force_contact_threshold} to {param.value}")
                 self.force_contact_threshold = param.value

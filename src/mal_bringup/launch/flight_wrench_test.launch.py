@@ -52,6 +52,7 @@ def generate_launch_description():
             {'gain_torque': 1.0}, # Should be unity following the dynamics
             {'alpha_torque': 0.6}, # 1 is no filtering
             {'alpha_angular_velocity': 0.4},
+            {'alpha_accelerometer': 0.5},
             {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
             {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
             {'alpha_motor_inputs': 0.4}, # 1 is no filtering
@@ -70,7 +71,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 2.5},
-            {'takeoff_altitude': -1.5}
+            {'takeoff_altitude': -1.0}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 
