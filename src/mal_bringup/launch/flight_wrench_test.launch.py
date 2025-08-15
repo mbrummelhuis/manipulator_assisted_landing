@@ -46,15 +46,15 @@ def generate_launch_description():
         name='wrench_observer',
         output='screen',
         parameters=[
-            {'frequency': 50.0},
+            {'frequency': 100.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
             {'alpha_force': 0.6}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
             {'alpha_torque': 0.6}, # 1 is no filtering
-            {'alpha_angular_velocity': 0.6},
+            {'alpha_angular_velocity': 0.4},
             {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
             {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
-            {'alpha_motor_inputs': 0.6}, # 1 is no filtering
+            {'alpha_motor_inputs': 0.4}, # 1 is no filtering
             {'contact_force_proximity_threshold': 0.2}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info

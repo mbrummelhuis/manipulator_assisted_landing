@@ -12,16 +12,16 @@ from geometry_msgs.msg import PointStamped, Vector3Stamped
 from sensor_msgs.msg import JointState
 from px4_msgs.msg import SensorCombined, ActuatorMotors
 
-L_1 = 0.118 # TODO
-L_2 = 0.326 # TODO
-L_3 = 0.273 #0.330 with tactip # TODOs
+L_1 = 0.118
+L_2 = 0.326 
+L_3 = 0.273 # 0.330 with tactip
 
 class ExternalWrenchObserver(Node):
     def __init__(self):
         super().__init__('external_wrench_observer')
 
         # Parameters
-        self.declare_parameter('frequency', 10.0)
+        self.declare_parameter('frequency', 100.0)
         self.declare_parameter('gain_force', 1.0)
         self.declare_parameter('alpha_force', 1.0)
         self.declare_parameter('gain_torque', 1.0)
