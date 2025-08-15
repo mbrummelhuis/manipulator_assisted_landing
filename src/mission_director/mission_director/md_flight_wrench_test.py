@@ -72,8 +72,8 @@ class MissionDirectorPy(Node):
         self.offboard = False
         self.killed = False
         self.contact_counter = 0
-        self.x_setpoint = 0.0
-        self.y_setpoint = 0.0
+        self.x_setpoint = None
+        self.y_setpoint = None
         self.most_recent_contact_point = None
         self.arm_1_positions = np.array([0.0, 0.0, 0.0])
         self.arm_1_velocities = np.array([0.0, 0.0, 0.0])
@@ -88,7 +88,7 @@ class MissionDirectorPy(Node):
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
 
-        self.vehicle_local_position = VehicleLocalPosition()
+        self.vehicle_local_position = None
         self.state_start_time = datetime.datetime.now()
         self.counter = 0
     
@@ -104,25 +104,20 @@ class MissionDirectorPy(Node):
             case('entrypoint'): # Entry point - wait for position fix
                 self.publishMDState(0)
                 if self.first_state_loop:
-                    self.get_logger().info("Waiting for position fix")
+                    self.get_logger().info("Starting MD")
                     self.first_state_loop = False
 
-                self.x_setpoint = self.vehicle_local_position.x
-                self.y_setpoint = self.vehicle_local_position.y
-                self.publishOffboardPositionMode()
-
                 # State transition
-                if (self.x_setpoint != 0.0 and self.y_setpoint != 0.0) or self.input_state == 1:
-                    self.get_logger().info(f'Got position fix! \t x: {self.x_setpoint} \t y: {self.y_setpoint}')
+                if (self.vehicle_local_position is not None) or self.input_state == 1:
                     self.transition_state(new_state='wait_for_servo_driver')
 
             case('wait_for_servo_driver'):
                 self.publishMDState(1)
                 # State transition
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('default_config')
+                    self.transition_state('prepare_takeoff')
 
-            case('default_config'):
+            case('prepare_takeoff'):
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.6,
                     -pi/2, 0.0, 1.6)
@@ -131,12 +126,24 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Moving arm to default configuration')
                     self.first_state_loop = False
 
-                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                if not self.dry_test and self.vehicle_local_position is not None and self.x_setpoint is None and self.y_setpoint is None:
+                    self.x_setpoint = self.vehicle_local_position.x
+                    self.y_setpoint = self.vehicle_local_position.y
+                elif not self.dry_test and self.vehicle_local_position is not None and self.x_setpoint is not None and self.y_setpoint is not None:
+                    self.get_logger().info(f'Got setpoint: x {self.x_setpoint:.3f} \t y {self.y_setpoint:.3f}', throttle_duration_sec=4)
+                elif not self.dry_test and self.vehicle_local_position is None:
+                    self.get_logger().warn("No local position estimate!", throttle_duration_sec=1)
+                elif self.dry_test:
+                    self.x_setpoint = 0.0
+                    self.y_setpoint = 0.0
+
+                if ((datetime.datetime.now() - self.state_start_time).seconds > 5 and self.x_setpoint is not None and self.y_setpoint is not None) or self.input_state == 1:
                     self.transition_state('wait_for_arm_offboard')
 
             case('wait_for_arm_offboard'):
                 self.publishMDState(3)
                 self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.6,
                     -pi/2, 0.0, 1.6)
