@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'contact_detection_localization=contact_detection_localization.contact_detection_localization:main',
-            'wrench_observer=contact_detection_localization.wrench_observer:main'
+            'wrench_observer=contact_detection_localization.wrench_observer:main',
+            'wrench_observer_simple = contact_detection_localization.wrench_observer_simple:main',
         ],
     },
 )

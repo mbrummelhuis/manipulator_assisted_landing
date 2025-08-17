@@ -1,0 +1,208 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+ <tabbed_widget name="Main Window" parent="main_window">
+  <Tab containers="1" tab_name="Accelero data">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.333333;0.333333;0.333333" count="3">
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="3.187732" right="87.691392" bottom="-2.750923"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/accelero_smoothed/vector/x"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/accelerometer_m_s2[0]"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="5.885188" right="87.691392" bottom="-5.833442"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/accelero_smoothed/vector/y"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/accelerometer_m_s2[1]"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="-6.323162" right="87.691392" bottom="-13.690802"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/accelero_smoothed/vector/z"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/accelerometer_m_s2[2]"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Force estimates">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.250251;0.250251;0.249246;0.250251" count="4">
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="-0.344779" right="87.691392" bottom="-0.440880"/>
+       <limitY/>
+       <curve color="#ffb16d" name="/contact/log/force_unsmoothed/vector/x"/>
+       <curve color="#1f77b4" name="/contact/out/estimated_force/vector/x"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="1.068661" right="87.691392" bottom="-0.321602"/>
+       <limitY/>
+       <curve color="#ffb16d" name="/contact/log/force_unsmoothed/vector/y"/>
+       <curve color="#1f77b4" name="/contact/out/estimated_force/vector/y"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="1.308159" right="87.691392" bottom="0.555437"/>
+       <limitY/>
+       <curve color="#ffb16d" name="/contact/log/force_unsmoothed/vector/z"/>
+       <curve color="#1f77b4" name="/contact/out/estimated_force/vector/z"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="1.340946" right="87.691392" bottom="0.639216"/>
+       <limitY/>
+       <curve color="#1ac938" name="/contact/out/force_magnitude/data"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Gyro data">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.333333;0.333333;0.333333" count="3">
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.154349" right="87.691392" bottom="-0.182965"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/gyro_smoothed/vector/x"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/gyro_rad[0]"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.141420" right="87.691392" bottom="-0.159046"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/gyro_smoothed/vector/y"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/gyro_rad[1]"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.077772" right="87.691392" bottom="-0.084057"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/gyro_smoothed/vector/z"/>
+       <curve color="#ffb16d" name="/fmu/out/sensor_combined/gyro_rad[2]"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Torque estimate">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.250251;0.250251;0.249246;0.250251" count="4">
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.177741" right="87.691392" bottom="-0.136189"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/torque_unsmoothed/vector/x"/>
+       <curve color="#ffb16d" name="/contact/out/estimated_torque/vector/x"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.050730" right="87.691392" bottom="-0.212087"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/torque_unsmoothed/vector/y"/>
+       <curve color="#ffb16d" name="/contact/out/estimated_torque/vector/y"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.044581" right="87.691392" bottom="0.017592"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/contact/log/torque_unsmoothed/vector/z"/>
+       <curve color="#ffb16d" name="/contact/out/estimated_torque/vector/z"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.214652" right="87.691392" bottom="0.026047"/>
+       <limitY/>
+       <curve color="#ff7f0e" name="/contact/out/torque_magnitude/data"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Pipeline">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.500502;0.499498" count="2">
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="75.255829" top="0.214652" right="87.691392" bottom="0.026047"/>
+       <limitY/>
+       <curve color="#ff7f0e" name="/contact/out/torque_magnitude/data"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot mode="TimeSeries" style="Dots" flip_x="false" flip_y="false">
+       <range left="75.255829" top="7.100000" right="87.691392" bottom="6.900000"/>
+       <limitY/>
+       <curve color="#17ff00" name="/contact/out/contact_point/data"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="1"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <!-- - - - - - - - - - - - - - - -->
+ <Plugins>
+  <plugin ID="DataLoad CSV">
+   <parameters time_axis="" delimiter="0"/>
+  </plugin>
+  <plugin ID="DataLoad MCAP">
+   <parameters clamp_large_arrays="1" selected_topics="/md/state;/rosout;/servo/in/state;/servo/out/state;/fmu/out/vehicle_local_position;/fmu/out/vehicle_odometry;/fmu/out/vehicle_status_v1;/contact/log/accelero_smoothed;/contact/log/force_unsmoothed;/contact/log/gyro_smoothed;/contact/log/torque_unsmoothed;/contact/out/contact_point;/contact/out/contact_point_coords;/contact/out/estimated_force;/contact/out/estimated_torque;/contact/out/force_magnitude;/contact/out/loa_direction;/contact/out/loa_point;/contact/out/torque_magnitude;/fmu/in/offboard_control_mode;/fmu/in/trajectory_setpoint;/fmu/in/vehicle_visual_odometry;/fmu/out/actuator_motors;/fmu/out/battery_status;/fmu/out/manual_control_setpoint;/fmu/out/sensor_combined;/fmu/out/timesync_status;/fmu/out/vehicle_angular_velocity;/fmu/out/vehicle_attitude;/fmu/out/vehicle_control_mode;/fmu/out/vehicle_land_detected" max_array_size="500" use_timestamp="0" use_mcap_log_time="0"/>
+  </plugin>
+  <plugin ID="DataLoad ROS2 bags">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value="/controller/optimizer/ki_error;/controller/optimizer/regularization;/controller/out/correction;/controller/out/error;/controller/out/forward_kinematics;/controller/out/ik_check;/controller/out/inertial_contact_frame_pose;/controller/out/reference_contact_sensor_pose;/controller/out/reference_inertial_sensor_pose;/controller/out/servo_positions;/controller/out/trajectory_setpoint_twist;/controller/out/vehicle_visual_odometry;/events/write_split;/md/state;/parameter_events;/rosout;/servo/in/state;/servo/out/state;/tactip/contact;/tactip/pose;/tactip/ssim"/>
+  </plugin>
+  <plugin ID="DataLoad ULog"/>
+  <plugin ID="ROS2 Topic Subscriber">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value="/contact/out/contact_point;/contact/out/contact_point_coords;/contact/out/estimated_force;/contact/out/estimated_torque;/contact/out/force_magnitude;/contact/out/loa_direction;/contact/out/loa_point;/contact/out/torque_magnitude;/servo/in/state;/servo/out/state;/md/input;/md/state;/manipulator/in/position;/manipulator/in/velocity"/>
+  </plugin>
+  <plugin ID="UDP Server"/>
+  <plugin ID="WebSocket Server"/>
+  <plugin ID="ZMQ Subscriber"/>
+  <plugin ID="Fast Fourier Transform"/>
+  <plugin ID="Quaternion to RPY"/>
+  <plugin ID="Reactive Script Editor">
+   <library code="--[[ Helper function to create a series from arrays&#xa;&#xa; new_series: a series previously created with ScatterXY.new(name)&#xa; prefix:     prefix of the timeseries, before the index of the array&#xa; suffix_X:   suffix to complete the name of the series containing the X value. If [nil], use the index of the array.&#xa; suffix_Y:   suffix to complete the name of the series containing the Y value&#xa; timestamp:   usually the tracker_time variable&#xa;              &#xa; Example:&#xa; &#xa; Assuming we have multiple series in the form:&#xa; &#xa;   /trajectory/node.{X}/position/x&#xa;   /trajectory/node.{X}/position/y&#xa;   &#xa; where {N} is the index of the array (integer). We can create a reactive series from the array with:&#xa; &#xa;   new_series = ScatterXY.new(&quot;my_trajectory&quot;) &#xa;   CreateSeriesFromArray( new_series, &quot;/trajectory/node&quot;, &quot;position/x&quot;, &quot;position/y&quot;, tracker_time );&#xa;--]]&#xa;&#xa;function CreateSeriesFromArray( new_series, prefix, suffix_X, suffix_Y, timestamp )&#xa;  &#xa;  --- clear previous values&#xa;  new_series:clear()&#xa;  &#xa;  --- Append points to new_series&#xa;  index = 0&#xa;  while(true) do&#xa;&#xa;    x = index;&#xa;    -- if not nil, get the X coordinate from a series&#xa;    if suffix_X ~= nil then &#xa;      series_x = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_X) )&#xa;      if series_x == nil then break end&#xa;      x = series_x:atTime(timestamp)&#x9; &#xa;    end&#xa;    &#xa;    series_y = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_Y) )&#xa;    if series_y == nil then break end &#xa;    y = series_y:atTime(timestamp)&#xa;    &#xa;    new_series:push_back(x,y)&#xa;    index = index+1&#xa;  end&#xa;end&#xa;&#xa;--[[ Similar to the built-in function GetSeriesNames(), but select only the names with a give prefix. --]]&#xa;&#xa;function GetSeriesNamesByPrefix(prefix)&#xa;  -- GetSeriesNames(9 is a built-in function&#xa;  all_names = GetSeriesNames()&#xa;  filtered_names = {}&#xa;  for i, name in ipairs(all_names)  do&#xa;    -- check the prefix&#xa;    if name:find(prefix, 1, #prefix) then&#xa;      table.insert(filtered_names, name);&#xa;    end&#xa;  end&#xa;  return filtered_names&#xa;end&#xa;&#xa;--[[ Modify an existing series, applying offsets to all their X and Y values&#xa;&#xa; series: an existing timeseries, obtained with TimeseriesView.find(name)&#xa; delta_x: offset to apply to each x value&#xa; delta_y: offset to apply to each y value &#xa;  &#xa;--]]&#xa;&#xa;function ApplyOffsetInPlace(series, delta_x, delta_y)&#xa;  -- use C++ indices, not Lua indices&#xa;  for index=0, series:size()-1 do&#xa;    x,y = series:at(index)&#xa;    series:set(index, x + delta_x, y + delta_y)&#xa;  end&#xa;end&#xa;"/>
+   <scripts/>
+  </plugin>
+  <plugin ID="CSV Exporter"/>
+  <plugin ID="ROS2 Topic Re-Publisher"/>
+ </Plugins>
+ <!-- - - - - - - - - - - - - - - -->
+ <previouslyLoaded_Datafiles>
+  <fileInfo filename="../rosbags/ros2bag_mal_2025-08-15_12-19-42/ros2bag_mal_2025-08-15_12-19-42_0.mcap" prefix=""/>
+ </previouslyLoaded_Datafiles>
+ <!-- - - - - - - - - - - - - - - -->
+ <customMathEquations/>
+ <snippets/>
+ <!-- - - - - - - - - - - - - - - -->
+</root>
+
