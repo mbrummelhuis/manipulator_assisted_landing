@@ -13,6 +13,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 """
 logging = False
 major_frequency = 30.
+probing_direction_body = [0., 0., 1.]
 
 def generate_launch_description():
     ld = LaunchDescription()
@@ -36,15 +37,19 @@ def generate_launch_description():
         name='wrench_observer_simple',
         output='screen',
         parameters=[
-            {'frequency': 30.0},
+            {'frequency': 100.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
-            {'alpha_force': 1.0}, # 1 is no filtering
+            {'alpha_force': 0.4}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
-            {'alpha_torque': 1.0}, # 1 is no filtering
-            {'alpha_angular_acceleration': 1.0},
-            {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
-            {'angle_threshold': 0.1},
-            {'probing_direction': [0., 0., -1.]},
+            {'alpha_torque': 0.4}, # 1 is no filtering
+            {'alpha_angular_velocity': 0.3},
+            {'alpha_accelerometer': 0.25},
+            {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
+            {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
+            {'alpha_motor_inputs': 0.3}, # 1 is no filtering
+            {'angle_threshold': 45.},
+            {'probing_direction': probing_direction_body},
+            {'contact_timeout_sec': 0.65}, # For debouncing
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
     )

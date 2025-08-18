@@ -33,6 +33,7 @@ class WrenchObserverSimple(Node):
         self.declare_parameter('alpha_motor_inputs', 0.7)
         self.declare_parameter('angle_threshold', 30.)
         self.declare_parameter('probing_direction', [0., 0., 1.])
+        self.declare_parameter('contact_timeout_sec', 0.5)
 
         self.gain_force = self.get_parameter('gain_force').get_parameter_value().double_value * np.eye(3)
         self.alpha_force = self.get_parameter('alpha_force').get_parameter_value().double_value
@@ -45,6 +46,7 @@ class WrenchObserverSimple(Node):
         self.torque_contact_threshold = self.get_parameter('torque_contact_threshold').get_parameter_value().double_value
         self.angle_threshold = np.deg2rad(self.get_parameter('angle_threshold').get_parameter_value().double_value)
         self.probing_direction = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
+        self.contact_timeout_sec = self.get_parameter('contact_timeout_sec').get_parameter_value().double_value
         
         # Register parameter change callback
         self.add_on_set_parameters_callback(self.param_callback)
@@ -119,6 +121,7 @@ class WrenchObserverSimple(Node):
 
         # Contact detection and localization
         self.contact = False
+        self.last_contact_time = datetime.datetime.now()
 
         # Candidate contact points
         self.contact_point_candidates = {
@@ -188,10 +191,13 @@ class WrenchObserverSimple(Node):
         if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold or np.linalg.norm(self.most_recent_torque_estimate)> self.torque_contact_threshold:
             self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate):.2f}, Torque magnitude {np.linalg.norm(self.most_recent_torque_estimate):.2f}', throttle_duration_sec=1)
             self.contact = True
+            self.contact_time = datetime.datetime.now()
         else:
             self.contact = False
 
-        if self.contact:
+        # If contact detected and long enough since the last timeout
+        if self.contact and (self.contact_time - self.last_contact_time).seconds > self.contact_timeout_sec:
+            self.last_contact_time = self.contact_time
             arm_index, success = self.determine_contact_arm()
             if success:
                 self.publish_contact_point(arm_index)
@@ -410,6 +416,9 @@ class WrenchObserverSimple(Node):
             elif param.name == 'alpha_motor_inputs' and param.type_ == Parameter.Type.DOUBLE:
                 self.get_logger().info(f"Param updated from {self.alpha_motor_inputs} to {param.value}")
                 self.alpha_motor_inputs = param.value
+            elif param.name == 'contact_timeout_sec' and param.type_ == Parameter.Type.DOUBLE:
+                self.get_logger().info(f"Param updated from {self.contact_timeout_sec} to {param.value}")
+                self.contact_timeout_sec = param.value
         # Returning successful result allows the change
         return SetParametersResult(successful=True)
 
