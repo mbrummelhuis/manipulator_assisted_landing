@@ -11,7 +11,7 @@ Launch simulation with one arm.
 
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
-logging = True
+logging = False
 major_frequency = 30.
 
 def generate_launch_description():
@@ -32,8 +32,8 @@ def generate_launch_description():
     # Wrench estimator
     contact_detector = Node(
         package='contact_detection_localization',
-        executable='wrench_observer',
-        name='wrench_observer',
+        executable='wrench_observer_simple',
+        name='wrench_observer_simple',
         output='screen',
         parameters=[
             {'frequency': 30.0},
@@ -43,7 +43,8 @@ def generate_launch_description():
             {'alpha_torque': 1.0}, # 1 is no filtering
             {'alpha_angular_acceleration': 1.0},
             {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
-            {'contact_force_proximity_threshold': 0.1}
+            {'angle_threshold': 0.1},
+            {'probing_direction': [0., 0., -1.]},
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
     )
@@ -76,14 +77,14 @@ def generate_launch_description():
     # ld.add_action(mission_director)
 
     # ROSBAG logging
-    rosbag_record = []
     if logging:
         rosbag_name = 'ros2bag_mal_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        rosbag_path = f'/ros2/manipulator_assisted_landing/data/rosbags/{rosbag_name}'
-        rosbag_record.append(ExecuteProcess(
-            cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'], 
-            output='screen', 
+        rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
+        rosbag_process = ExecuteProcess(
+            cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],
+            output='screen',
             log_cmd=True,
-        ))
+        )
+        ld.add_action(rosbag_process)
 
     return ld

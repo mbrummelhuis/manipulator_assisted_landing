@@ -181,14 +181,21 @@ class MissionDirectorPy(Node):
                 self.publishMDState(5)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
-
+                self.move_arms_to_joint_position(
+                    pi/3, 0.0, 1.6,
+                    -pi/3, 0.0, -1.6)
                 self.get_logger().info(f'Hover mode. Publish input state 1 to land.', throttle_duration_sec=5)
 
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
                 if self.input_state == 1:
                     self.transition_state('land')          
  
             case('land'):
                 self.publishMDState(22)
+                self.move_arms_to_joint_position(
+                    1.75, 0.0, -1.82,
+                    -1.75, 0.0, 1.82)
                 self.land()
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('landed')
@@ -203,8 +210,8 @@ class MissionDirectorPy(Node):
 
             case('emergency'):
                 self.move_arms_to_joint_position(
-                    1.578, 0.0, -1.82,
-                    -1.578, 0.0, 1.82)
+                    1.75, 0.0, -1.82,
+                    -1.75, 0.0, 1.82)
                 self.publishMDState(-1)
                 if self.counter% (2*self.frequency) == 0: # Publish message every 2 seconds
                     self.get_logger().warn("Emergency state - no offboard mode")

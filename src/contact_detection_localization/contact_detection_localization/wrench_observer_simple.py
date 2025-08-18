@@ -218,6 +218,9 @@ class WrenchObserverSimple(Node):
         virtual_interaction_force = -1.*self.probing_direction
         virtual_resulting_moment_right = np.cross(self.contact_point_candidates['right_arm']['coords'], virtual_interaction_force)
         virtual_resulting_moment_left = np.cross(self.contact_point_candidates['left_arm']['coords'], virtual_interaction_force)
+        if np.linalg.norm(virtual_resulting_moment_left) < 1e-6 or np.linalg.norm(virtual_resulting_moment_right) < 1e-6:
+            self.get_logger().error("Virtual moments zero")
+            return 0, False
     
         # Normalize the torque estimate
         if self.most_recent_torque_estimate is None:
@@ -231,8 +234,8 @@ class WrenchObserverSimple(Node):
         normalized_moment_left = virtual_resulting_moment_left/np.linalg.norm(virtual_resulting_moment_left)
         
         # Cosine similarities
-        angle_right, angle_left = np.arccos(np.dot(normalized_moment_right, normalized_torque_estimate), np.dot(normalized_moment_left, normalized_torque_estimate))
-        self.get_logger().info(f"Relative torque vector angles, right {np.rad2deg(angle_right):.3f}, left {np.rad2deg(angle_left):.3f}")
+        angle_right, angle_left = np.arccos(np.dot(normalized_moment_right, normalized_torque_estimate)), np.arccos(np.dot(normalized_moment_left, normalized_torque_estimate))
+        self.get_logger().info(f"Relative torque vector angles, right {np.rad2deg(angle_right):.3f}, left {np.rad2deg(angle_left):.3f}", throttle_duration_sec=5)
         
         # Publishers for logging and debugging
         self.publish_virtual_torque(virtual_resulting_moment_right, virtual_resulting_moment_left)
@@ -245,15 +248,18 @@ class WrenchObserverSimple(Node):
         elif angle_left < self.angle_threshold: # In rad
             return 2, True
         else:
-            self.get_logger().warn("No angles in threshold")
+            self.get_logger().warn("No angles in threshold", throttle_duration_sec=5)
             return 0, False
 
 
     def update_ee_locations(self):
-        FK_right = self.position_forward_kinematics(self.servo_state.position[0], self.servo_state.position[1], self.servo_state.position[2])
-        FK_left = self.position_forward_kinematics(self.servo_state.position[3], self.servo_state.position[4], self.servo_state.position[5])
-        self.contact_point_candidates['right_arm']['coords'] = np.array(FK_right)
-        self.contact_point_candidates['left_arm']['coords'] = np.array(FK_left)
+        if self.servo_state is not None:
+            FK_right = self.position_forward_kinematics(self.servo_state.position[0], self.servo_state.position[1], self.servo_state.position[2])
+            FK_left = self.position_forward_kinematics(self.servo_state.position[3], self.servo_state.position[4], self.servo_state.position[5])
+            self.contact_point_candidates['right_arm']['coords'] = np.array(FK_right)
+            self.contact_point_candidates['left_arm']['coords'] = np.array(FK_left)
+        else: 
+            self.get_logger().warn(f"No servo states yet, cannot calculate forward kinematics!")
 
     def publish_estimated_force(self, force):
         msg = Vector3Stamped()
