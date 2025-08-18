@@ -105,7 +105,7 @@ class WrenchObserverSimple(Node):
         drag_coeff = 0.1e-5 # Somewhat arbitrary
         yaw_moment_arm = 0.33911 # [m] Moment arm of yaw contribution of thrust
         self.rotational_allocation_matrix = np.array([[-arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_y*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_y*np.cos(np.deg2rad(self.propeller_incline_angle))], # Roll moment
-                                                     [arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle))], # Pitch moment
+                                                     [-arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), -arm_x*np.cos(np.deg2rad(self.propeller_incline_angle)), arm_x*np.cos(np.deg2rad(self.propeller_incline_angle))], # Pitch moment
                                                      [np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff, -np.sin(np.deg2rad(self.propeller_incline_angle))*yaw_moment_arm+drag_coeff]]) # Yaw moment
 
         self.R_accelerometer = np.array([[-1., 0., 0.],
@@ -219,7 +219,7 @@ class WrenchObserverSimple(Node):
         virtual_resulting_moment_right = np.cross(self.contact_point_candidates['right_arm']['coords'], virtual_interaction_force)
         virtual_resulting_moment_left = np.cross(self.contact_point_candidates['left_arm']['coords'], virtual_interaction_force)
         if np.linalg.norm(virtual_resulting_moment_left) < 1e-6 or np.linalg.norm(virtual_resulting_moment_right) < 1e-6:
-            self.get_logger().error("Virtual moments zero")
+            self.get_logger().error("Virtual moments zero", throttle_duration_sec=1)
             return 0, False
     
         # Normalize the torque estimate
@@ -259,7 +259,7 @@ class WrenchObserverSimple(Node):
             self.contact_point_candidates['right_arm']['coords'] = np.array(FK_right)
             self.contact_point_candidates['left_arm']['coords'] = np.array(FK_left)
         else: 
-            self.get_logger().warn(f"No servo states yet, cannot calculate forward kinematics!")
+            self.get_logger().warn(f"No servo states yet, cannot calculate forward kinematics!", throttle_duration_sec=1)
 
     def publish_estimated_force(self, force):
         msg = Vector3Stamped()
