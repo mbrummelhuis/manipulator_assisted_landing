@@ -213,10 +213,7 @@ class MissionDirectorPy(Node):
                     1.75, 0.0, -1.82,
                     -1.75, 0.0, 1.82)
                 self.publishMDState(-1)
-                if self.counter% (2*self.frequency) == 0: # Publish message every 2 seconds
-                    self.get_logger().warn("Emergency state - no offboard mode")
-                    self.counter = 0
-                self.counter +=1
+                self.get_logger().error("Emergency state - no offboard mode", throttle_duration_sec=2)
 
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')

@@ -95,7 +95,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 2.5},
-            {'takeoff_altitude': -1.0}
+            {'takeoff_altitude': -1.2}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 
