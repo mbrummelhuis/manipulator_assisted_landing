@@ -378,7 +378,7 @@ class MissionDirectorPy(Node):
         msg = JointState()
         msg.position = [q1_1, q2_1, q3_1, q1_2, q2_2, q3_2]
         msg.velocity = [0., 0., 0., 0., 0., 0.]
-        msg.name = ['q1_1', 'q2_1', 'q3_1', 'q1_2', 'q2_2', 'q3_2']
+        msg.name = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5']
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo_state.publish(msg)
 
@@ -386,7 +386,7 @@ class MissionDirectorPy(Node):
         msg = JointState()
         msg.position = [0., 0., 0., 0., 0., 0.]
         msg.velocity = [q1_1, q2_1, q3_1, q1_2, q2_2, q3_2]
-        msg.name = ['q1_1', 'q2_1', 'q3_1', 'q1_2', 'q2_2', 'q3_2']
+        msg.name = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5']
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo_state.publish(msg)
 
