@@ -34,8 +34,8 @@ def generate_launch_description():
     # Wrench estimator
     contact_detector = Node(
         package='contact_detection_localization',
-        executable='wrench_observer',
-        name='WObs',
+        executable='wrench_observer_simple',
+        name='wrench_observer_simple',
         output='screen',
         parameters=[
             {'frequency': 50.0},
@@ -48,9 +48,9 @@ def generate_launch_description():
             {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
             {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
             {'alpha_motor_inputs': 0.3}, # 1 is no filtering
-            {'angle_threshold': 45.}, # [deg] 
+            {'angle_threshold': 45.},
             {'probing_direction': probing_direction_body},
-            {'contact_timeout_sec': 0.5},
+            {'contact_timeout_sec': 0.65}, # For debouncing
         ],
         arguments=["--ros-args", "--log-level", "error"] # Log level info
     )

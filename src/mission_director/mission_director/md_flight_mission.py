@@ -97,8 +97,8 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.4, 0.05]) # Nominal XYZ posiiton in FRD body frame
-        self.arm_2_nominal = np.array([0.0, -0.4, 0.05]) # Nominal XYZ posiiton in FRD body frame
+        self.arm_1_nominal = np.array([0.0, 0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
+        self.arm_2_nominal = np.array([0.0, -0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
