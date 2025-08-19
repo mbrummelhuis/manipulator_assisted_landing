@@ -36,6 +36,9 @@ def generate_launch_description():
         executable='manipulator_controller',
         name="manipulator_controller",
         output='screen',
+        parameters=[
+            {'minimum_pivot_distance': 0.3}
+        ],
         arguments=["--ros-args", "--log-level", "info"]
     )
     ld.add_action(manipulator_controller)

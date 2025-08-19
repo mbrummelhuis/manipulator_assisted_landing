@@ -14,6 +14,9 @@ L3 = 0.330
 class ManipulatorController(Node):
     def __init__(self):
         super().__init__('manipulator_controller')
+        self.declare_parameter('minimum_pivot_distance', 0.3)
+
+        self.min_pivot_distance = self.get_parameter('minimum_pivot_distance').get_parameter_value().double_value
 
         # Servo interface
         self.subscriber_servo = self.create_subscription(JointState, '/servo/out/state', self.callback_servo, 10)
@@ -181,6 +184,7 @@ class ManipulatorController(Node):
 
     
     def publish_servo_positions(self, positions):
+        # Clip for safety
         clipped_positions = np.empty(len(positions))
         clipped_positions[0] = np.clip(positions[0], -np.pi, np.pi)
         clipped_positions[1] = np.clip(positions[1], -np.pi/8., np.pi/8.)
@@ -189,6 +193,11 @@ class ManipulatorController(Node):
         clipped_positions[4] = np.clip(positions[4], -np.pi/8., np.pi/8.)
         clipped_positions[5] = np.clip(positions[5], -1.85, 1.85)
 
+        # Test if not colliding on ring gear
+        if abs(positions[0] - positions[3]) < 0.3: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
+            self.get_logger().error(f"Ring gear collision risk: {positions[0]:.2f}, {positions[3]:.2f}")
+            clipped_positions[0] = self.servo_state.position[0]
+            clipped_positions[3] = self.servo_state.position[3]
         msg = JointState()
         msg.name = ['q'+str(i) for i in range(len(clipped_positions))]
         msg.position = clipped_positions
@@ -198,6 +207,11 @@ class ManipulatorController(Node):
         self.publisher_servo.publish(msg)
     
     def publish_servo_velocities(self, velocities):
+        # In case of collision stop the arms
+        if abs(self.servo_state.position[0] - self.servo_state.position[3]) < 0.3: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
+            self.get_logger().error(f"Ring gear collision risk: {self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
+            velocities = [0.0 for i in range(len(velocities))]
+
         msg = JointState()
         msg.name = ['q'+str(i) for i in range(len(velocities))]
         msg.position = [0.0 for i in range(len(velocities))]

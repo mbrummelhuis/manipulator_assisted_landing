@@ -32,6 +32,8 @@ class MissionDirectorPy(Node):
         self.declare_parameter('frequency', 25.0)
         self.declare_parameter('position_clip', 0.0)
         self.declare_parameter('takeoff_altitude', -1.5)
+        self.declare_parameter('probing_speed', 0.05)
+        self.declare_parameter('probing_direction', [0., 0., 1.])
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -57,13 +59,16 @@ class MissionDirectorPy(Node):
         self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
         self.publisher_manipulator_velocities = self.create_publisher(TwistStamped, '/manipulator/in/velocity', 10)
 
+        # Contact detection and landing planning interfaces
+        self.subscriber_contact_point = self.create_subscription(Int32, '/contact/out/contact_point', self.contact_point_callback, 10)
+
         # Mission director in/output
         self.subscriber_input_state = self.create_subscription(Int32, '/md/input', self.input_state_callback, 10)
         self.publisher_md_state = self.create_publisher(Int32, '/md/state', 10)
 
         # Set initial data
         self.FSM_state = 'entrypoint'
-        self.dry_test = False
+        self.dry_test = True
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
@@ -87,6 +92,12 @@ class MissionDirectorPy(Node):
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
+
+        # For the probing and contact detection
+        self.probing_direction_body = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
+        self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
+        self.last_contact_time_right = datetime.datetime.now()
+        self.last_contact_time_left = datetime.datetime.now()
 
         self.vehicle_local_position = None
         self.state_start_time = datetime.datetime.now()
@@ -189,7 +200,46 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 if self.input_state == 1:
-                    self.transition_state('land')          
+                    self.transition_state('land')
+
+            case('probing'):
+                self.publishMDState(11)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.contact_counter = 0
+                    self.first_state_loop = False
+                    self.landing_start_position = None # Reset landing start position 
+
+                # Retract if indicated, otherwise probe in forward direction, stop arm if nearing workspace edge
+                velocity_vector_body = self.probing_direction_body*self.probing_speed
+                if not self.retract_right and not self.retract_left:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, velocity_vector_body)
+                elif not self.retract_right and self.retract_left:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, -velocity_vector_body)
+                elif self.retract_right and not self.retract_left:
+                    self.move_arms_in_xyz_velocity(-velocity_vector_body, velocity_vector_body)
+                elif self.retract_right and self.retract_left:
+                    self.move_arms_in_xyz_velocity(-velocity_vector_body, -velocity_vector_body)
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(np.zeros(3), velocity_vector_body)
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, np.zeros(3))
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1 and np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(np.zeros(3), np.zeros(3))
+
+
+                # Conditions for stopping retraction after contact (2 seconds)
+                if (datetime.datetime.now() - self.last_contact_time_right).seconds > 2.:
+                    self.retract_right = False
+                if (datetime.datetime.now() - self.last_contact_time_left).seconds > 2.:
+                    self.retract_left = False
+
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.landing_start_position is not None or self.input_state == 1:
+                    self.transition_state('switch_to_position_mode')
  
             case('land'):
                 self.publishMDState(22)
@@ -218,6 +268,22 @@ class MissionDirectorPy(Node):
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
                 self.transition_state('emergency')
+
+    def get_align_heading(self):
+        # Normalize the probing direction vector and find horizontal projection
+        normalized_probing_direction = self.probing_direction_body/np.linalg.norm(self.probing_direction_body)
+        horizontal_projection = np.array([normalized_probing_direction[0], normalized_probing_direction[1]])
+        # If the direction is straight up or down, return own heading
+        if np.linalg.norm(horizontal_projection) < 1e-3:
+            return self.vehicle_local_position.heading
+        else:
+            vehicle_y_in_world = np.array([np.sin(self.vehicle_local_position.heading), np.cos(self.vehicle_local_position.heading)])
+            positive_heading = self.signed_angle_2d(vehicle_y_in_world, horizontal_projection)
+            negative_heading = self.signed_angle_2d(-vehicle_y_in_world, horizontal_projection)
+            if abs(positive_heading)>=abs(negative_heading):
+                return negative_heading
+            elif abs(negative_heading)>abs(positive_heading):
+                return positive_heading
 
     def publish_arms_position_commands(self, q1_1, q2_1, q3_1, q1_2, q2_2, q3_2):
         msg = JointState()
@@ -375,6 +441,15 @@ class MissionDirectorPy(Node):
 
     def vehicle_local_position_callback(self, msg):
         self.vehicle_local_position = msg
+
+    def contact_point_callback(self, msg):
+        if msg.data == 1: # Right arm
+            self.retract_right = True
+            self.last_contact_time_right = datetime.datetime.now()
+        elif msg.data == 2: # Left arm
+            self.retract_left = True
+            self.last_contact_time_left = datetime.datetime.now()
+        self.contact_counter += 1
 
     def joint_states_callback(self, msg):
         self.arm_1_positions[0] = msg.position[0] # Pivot

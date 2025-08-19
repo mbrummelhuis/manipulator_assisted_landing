@@ -254,7 +254,7 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
                     self.landing_start_position = None # Reset landing start position 
 
-                # Retract if indicated, otherwise probe in forward direction
+                # Retract if indicated, otherwise probe in forward direction, stop arm if nearing workspace edge
                 velocity_vector_body = self.probing_direction_body*self.probing_speed
                 if not self.retract_right and not self.retract_left:
                     self.move_arms_in_xyz_velocity(velocity_vector_body, velocity_vector_body)
@@ -264,6 +264,13 @@ class MissionDirectorPy(Node):
                     self.move_arms_in_xyz_velocity(-velocity_vector_body, velocity_vector_body)
                 elif self.retract_right and self.retract_left:
                     self.move_arms_in_xyz_velocity(-velocity_vector_body, -velocity_vector_body)
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(np.zeros(3), velocity_vector_body)
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, np.zeros(3))
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1 and np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
+                    self.move_arms_in_xyz_velocity(np.zeros(3), np.zeros(3))
+
 
                 # Conditions for stopping retraction after contact (2 seconds)
                 if (datetime.datetime.now() - self.last_contact_time_right).seconds > 2.:
@@ -275,9 +282,6 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None or self.input_state == 1:
                     self.transition_state('switch_to_position_mode')
-
-                # if np.linalg.norm(target_ee_1) > self.workspace_radius:
-                #     self.transition_state('move_arms_for_landing')
 
             case('switch_to_position_mode'):
                 self.publishMDState(20)
