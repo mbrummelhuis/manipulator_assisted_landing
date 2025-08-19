@@ -14,6 +14,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 logging = True
 major_frequency = 25.
 md_name = 'mission_director_flight_mission'
+probing_direction_body = [0., 0., -1.]
 
 def generate_launch_description():
     ld = LaunchDescription()
@@ -37,14 +38,19 @@ def generate_launch_description():
         name='WObs',
         output='screen',
         parameters=[
-            {'frequency': 30.0},
+            {'frequency': 100.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
-            {'alpha_force': 1.0}, # 1 is no filtering
+            {'alpha_force': 0.4}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
-            {'alpha_torque': 1.0}, # 1 is no filtering
-            {'alpha_angular_acceleration': 1.0},
-            {'force_contact_threshold': 3.0}, # [N] net linear force necessary to conclude contact
-            {'contact_force_proximity_threshold': 0.1}
+            {'alpha_torque': 0.4}, # 1 is no filtering
+            {'alpha_angular_velocity': 0.3},
+            {'alpha_accelerometer': 0.25},
+            {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
+            {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
+            {'alpha_motor_inputs': 0.3}, # 1 is no filtering
+            {'angle_threshold': 45.},
+            {'probing_direction': probing_direction_body},
+            {'contact_timeout_sec': 0.5},
         ],
         arguments=["--ros-args", "--log-level", "error"] # Log level info
     )
@@ -83,7 +89,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'probing_speed': 0.01},
-            {'probing_direction': [0., 0., -1.]}
+            {'probing_direction': probing_direction_body}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 
@@ -91,14 +97,14 @@ def generate_launch_description():
     ld.add_action(mission_director)
 
     # ROSBAG logging
-    rosbag_record = []
     if logging:
         rosbag_name = 'ros2bag_mal_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        rosbag_path = f'/ros2/manipulator_assisted_landing/data/rosbags/{rosbag_name}'
-        rosbag_record.append(ExecuteProcess(
-            cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'], 
-            output='screen', 
+        rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
+        rosbag_process = ExecuteProcess(
+            cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],
+            output='screen',
             log_cmd=True,
-        ))
+        )
+        ld.add_action(rosbag_process)
 
     return ld

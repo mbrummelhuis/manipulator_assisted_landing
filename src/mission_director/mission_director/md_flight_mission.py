@@ -55,6 +55,10 @@ class MissionDirectorPy(Node):
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
 
+        # Manipulator interface
+        self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
+        self.publisher_manipulator_velocities = self.create_publisher(TwistStamped, '/manipulator/in/velocity', 10)
+
         # Landing planner output
         self.subscriber_contact_point = self.create_subscription(Int32, '/contact/out/contact_point', self.contact_point_callback, 10)
         self.subscriber_landing_point = self.create_subscription(TrajectorySetpoint, '/landing/out/start_location', self.landing_point_callback, 10)
@@ -77,6 +81,10 @@ class MissionDirectorPy(Node):
         self.contact_counter = 0
         self.x_setpoint = 0.0
         self.y_setpoint = 0.0
+        self.retract_right = False
+        self.retract_left = False
+        self.last_contact_time_right = datetime.datetime.now()
+        self.last_contact_time_left = datetime.datetime.now()
         self.most_recent_contact_point = None
         self.arm_1_positions = np.array([0.0, 0.0, 0.0])
         self.arm_1_velocities = np.array([0.0, 0.0, 0.0])
@@ -85,8 +93,8 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame
-        self.arm_2_nominal = np.array([0.0, -0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame
+        self.arm_1_nominal = np.array([0.0, 0.4, -0.1]) # Nominal XYZ posiiton in FRD body frame
+        self.arm_2_nominal = np.array([0.0, -0.4, -0.1]) # Nominal XYZ posiiton in FRD body frame
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
@@ -95,7 +103,7 @@ class MissionDirectorPy(Node):
         self.manipulator2_landing_position = None
         self.landing_start_position = None
 
-        self.probing_direction = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
+        self.probing_direction_body = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
         self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
         self.get_logger().info(f'probing downward speed {self.probing_speed}')
         self.workspace_radius = L_1+L_2+L_3
@@ -145,15 +153,15 @@ class MissionDirectorPy(Node):
                     self.get_logger().info('Default config -- Suspend drone and continue')
                     self.first_state_loop = False
 
-                if self.input_state == 1:
-                    self.transition_state('wait_for_arm_offboard')
+                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
+                    self.transition_state('sim_arm_offboard') # TODO switch to wait for arm offboard in real flight
 
             case('wait_for_arm_offboard'):
                 self.publishMDState(3)
                 self.publishOffboardPositionMode()
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
+                    pi/3, 0.0, 1.6,
+                    -pi/3, 0.0, -1.6)
 
                 # State transition
                 if self.armed and not self.offboard:
@@ -163,13 +171,30 @@ class MissionDirectorPy(Node):
                 elif (self.armed and self.offboard) or self.input_state == 1:
                     self.transition_state('takeoff')
 
+            case('sim_arm_offboard'):
+                if not self.offboard and self.counter%self.frequency==0:
+                    #self.get_logger().info("Sending offboard command")
+                    self.engage_offboard_mode()
+                    self.counter = 0
+                if not self.armed and self.offboard and self.counter%self.frequency==0:
+                    #self.get_logger().info("Sending arm command")
+                    self.armVehicle()
+                    self.counter = 0
+
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
+
+                self.publishMDState(3)
+                if self.armed and self.offboard:
+                    self.transition_state('takeoff')
+
             case('takeoff'): # Takeoff - wait for takeoff altitude
                 self.publishMDState(4)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
+                    pi/3, 0.0, 1.6,
+                    -pi/3, 0.0, -1.6)
                 current_altitude = self.vehicle_local_position.z
 
                 # First state loop
@@ -189,19 +214,22 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
 
-                probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([np.linalg.norm(self.probing_direction[0:2]), self.probing_direction[2]]))
-                rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
-                rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
+                if self.first_state_loop:
+                    # Get the angle w.r.t. [0., 0., 1.] to align the arms
+                    probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([np.linalg.norm(self.probing_direction_body[0:2]), self.probing_direction_body[2]]))
+                    rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
+                    rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
 
-                self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
+                    self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
+                    self.first_state_loop = False
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('switch_to_velocity_mode')  
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                    self.transition_state('probing')  
 
-            case('switch_to_velocity_mode'):
+            case('switch_to_velocity_mode'): # TODO transition here from previous state in real flight (sim has no change mode service)
                 self.publishMDState(10)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
@@ -210,7 +238,9 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
                     self.srv_set_servo_mode(1)
 
-                if self.input_state == 1 and self.future.result().success:
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.input_state == 1 or self.future.result().success:
                     self.transition_state('probing')
             
             # Verify after here
@@ -222,21 +252,32 @@ class MissionDirectorPy(Node):
                 if self.first_state_loop:
                     self.contact_counter = 0
                     self.first_state_loop = False
+                    self.landing_start_position = None # Reset landing start position 
 
-                # Transform
-                body_probing_direction = self.Rz(self.vehicle_local_position.heading, self.probing_direction)
-                self.move_arms_in_xyz_velocity(body_probing_direction)
+                # Retract if indicated, otherwise probe in forward direction
+                velocity_vector_body = self.probing_direction_body*self.probing_speed
+                if not self.retract_right and not self.retract_left:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, velocity_vector_body)
+                elif not self.retract_right and self.retract_left:
+                    self.move_arms_in_xyz_velocity(velocity_vector_body, -velocity_vector_body)
+                elif self.retract_right and not self.retract_left:
+                    self.move_arms_in_xyz_velocity(-velocity_vector_body, velocity_vector_body)
+                elif self.retract_right and self.retract_left:
+                    self.move_arms_in_xyz_velocity(-velocity_vector_body, -velocity_vector_body)
 
-                # TODO Move arm back if contact point is detected
-                if self.most_recent_contact_point == 1: # Arm 1
-                    # Move arm back or back to norminal position
-                    pass
-                elif self.most_recent_contact_point == 2: # Arm 2
-                    # Move arm back or to nominal position
-                    pass
+                # Conditions for stopping retraction after contact (2 seconds)
+                if (datetime.datetime.now() - self.last_contact_time_right).seconds > 2.:
+                    self.retract_right = False
+                if (datetime.datetime.now() - self.last_contact_time_left).seconds > 2.:
+                    self.retract_left = False
 
-                if self.contact_counter == 2 or self.input_state == 1:
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.landing_start_position is not None or self.input_state == 1:
                     self.transition_state('switch_to_position_mode')
+
+                # if np.linalg.norm(target_ee_1) > self.workspace_radius:
+                #     self.transition_state('move_arms_for_landing')
 
             case('switch_to_position_mode'):
                 self.publishMDState(20)
@@ -247,7 +288,9 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
                     self.srv_set_servo_mode(4)
 
-                if self.input_state == 1 and self.future.result().success:
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.input_state == 1 and self.future.result().success:
                     self.transition_state('probing')
 
             case('pre_landing'):
@@ -265,8 +308,9 @@ class MissionDirectorPy(Node):
 
                     self.move_arms_to_xyz_position(self.manipulator1_landing_position, self.manipulator2_landing_position)
 
-                
-                if ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
                     (self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None):
                     self.transition_state('land')
             
@@ -297,7 +341,7 @@ class MissionDirectorPy(Node):
 
     def get_align_heading(self):
         # Normalize the probing direction vector and find horizontal projection
-        normalized_probing_direction = self.probing_direction/np.linalg.norm(self.probing_direction)
+        normalized_probing_direction = self.probing_direction_body/np.linalg.norm(self.probing_direction_body)
         horizontal_projection = np.array([normalized_probing_direction[0], normalized_probing_direction[1]])
         # If the direction is straight up or down, return own heading
         if np.linalg.norm(horizontal_projection) < 1e-3:
@@ -501,7 +545,12 @@ class MissionDirectorPy(Node):
         self.manipulator2_landing_position = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
     
     def contact_point_callback(self, msg):
-        self.most_recent_contact_point = msg.data
+        if msg.data == 1: # Right arm
+            self.retract_right = True
+            self.last_contact_time_right = datetime.datetime.now()
+        elif msg.data == 2: # Left arm
+            self.retract_left = True
+            self.last_contact_time_left = datetime.datetime.now()
         self.contact_counter += 1
 
     def Rx(self, angle:float, vector:np.array) -> np.array:
@@ -517,11 +566,16 @@ class MissionDirectorPy(Node):
     def R2(self, angle:float, vector:np.array) -> np.array:
         return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]) @ vector
 
-    def signed_angle_2d(self, v1:np.array, v2:np.array) -> float:
+    def signed_angle_2d(v1: np.array, v2: np.array) -> float:
         # Normalize
         v1_u = v1 / np.linalg.norm(v1)
         v2_u = v2 / np.linalg.norm(v2)
-        return np.arctan2(np.cross(v1_u, v2_u))
+
+        # Dot and 2D cross
+        dot = np.dot(v1_u, v2_u)
+        cross = v1_u[0] * v2_u[1] - v1_u[1] * v2_u[0]
+
+        return np.arctan2(cross, dot)
 
     def transition_state(self, new_state='end'):
         if self.input_state != 0:

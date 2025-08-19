@@ -80,7 +80,7 @@ def generate_launch_description():
             {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
             {'alpha_motor_inputs': 0.3}, # 1 is no filtering
             {'angle_threshold': 45.},
-            {'probing_direction': probing_direction_body}
+            {'probing_direction': probing_direction_body},
             {'contact_timeout_sec': 0.5},
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info

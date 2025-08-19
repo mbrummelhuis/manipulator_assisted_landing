@@ -3,12 +3,23 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 import numpy as np
-
+from std_msgs.msg import Int32
 from geometry_msgs.msg import PointStamped, Vector3Stamped, TwistStamped
 from px4_msgs.msg import VehicleLocalPosition, TrajectorySetpoint
 
 
 class LandingPlanner(Node):
+    """
+    This node contains the landing planner logic. It does not have a timer, but instead works by waiting on published contact points in the body frame.
+    The contact points are counted when the Mission Director has the proper state (11). Points are saved and when enough data is gathered, the 
+    plane estimation is triggered.
+    Plane estimation fits a plane parallel to the vehicles x-axis (in 2D) or a plane through 3 contact points (in 3D). The plane is defined by a centroid
+    (point on the plane), and a unit vector indicating the plane's normal.
+    The landing is planned by directing the drone to a point with a specified distance above the centroid. The manipulators are directed to positions
+    corresponding to the incline, in order to keep the body straight.
+
+    The body frame uses FRD and the world frame uses NED as frame convention.
+    """
     def __init__(self):
         super().__init__('landing_planner')
 
@@ -25,7 +36,7 @@ class LandingPlanner(Node):
         )
         self.subscription_contact_point = self.create_subscription(PointStamped, '/contact/out/contact_point', self.contact_point_callback, 10)
         self.subscription_local_position = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
-
+        self.subscription_mission_director = self.create_subscription(Int32, '/md/state', self.md_callback, 10)
         # Publisher
         self.publisher_plane_centroid = self.create_publisher(PointStamped, '/landing/out/centroid', 10) # For logging
         self.publisher_plane_normal = self.create_publisher(Vector3Stamped, '/landing/out/normal', 10) # For logging
@@ -36,6 +47,7 @@ class LandingPlanner(Node):
         # Data
         self.landing_offset = self.get_parameter('landing_offset').get_parameter_value().double_value
         self.contact_points = []
+        self.md_state = None
         self.centroid_world = None
         self.centroid_body = None
         self.normal_world = None
@@ -49,36 +61,25 @@ class LandingPlanner(Node):
         self.y_manipulator_distance = 0.4
         self.leg_z = 0.09
 
-    def plan_landing(self):
-        # Landing start point above the centroid of the plane
-        landing_point = self.centroid_world + np.array([0., 0., -self.landing_offset])
-        heading = self.plane_heading_rad()
-        self.publish_landing_point(landing_point, heading)
-
-        # Calculate end-effector desired locations in body frame
-        manipulator_body_z = self.leg_z + self.horizontal_leg_man_distance*np.tan(self.calculate_surface_incline(self.normal_world))
-        arm1_ee_position_body = np.array([self.x_manipulator_distance, self.y_manipulator_distance, manipulator_body_z])
-        arm2_ee_position_body = np.array([self.x_manipulator_distance, -self.y_manipulator_distance, manipulator_body_z])
-
-        self.get_logger().info(f'Manipulator 1 body targets: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f}')
-        self.get_logger().info(f'Manipulator 2 body targets: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f}')
-        
-        self.publish_desired_manipulator_positions(arm1_ee_position_body, arm2_ee_position_body)
-
     def contact_point_callback(self, msg):
         """
-        Add contact points to the database and if enough have been gathered, determine the plane
+        Add contact points to the database and if enough have been gathered, determine the plane.
+        This callback drives the node.
         """
-        new_point = np.array([msg.x, msg.y, msg.z])
-        self.contact_points.append(new_point)
-        # Once enough points have been gathered, calculate the plane
-        if len(self.contact_points) == 2 and self.dimension == 2: # 2D case
-            self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_2D()
-            self.landing = True
-            
-        elif len(self.contact_points) == 3 and self.dimension == 3: # 3D case
-            self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_3D()
-            self.landing = True
+        if self.md_state == 11: # If in the probing MD state, save the run the node
+            new_point = np.array([msg.point.x, msg.point.y, msg.point.z])
+            self.contact_points.append(new_point)
+            self.get_logger().info(f"Contact point received: {msg.point.x:.2f}, {msg.point.y:.2f}, {msg.point.z:.2f}. Total points: {len(self.contact_points)}")
+            # Once enough points have been gathered, calculate the plane
+            if len(self.contact_points) == 2 and self.dimension == 2: # 2D case
+                self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_2D()
+                self.plan_landing()
+                
+            elif len(self.contact_points) == 3 and self.dimension == 3: # 3D case
+                self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_3D()
+                self.plan_landing()
+        else:
+            self.get_logger().warn(f"Contact point received but not saved. Is MD in correct state?")
         return
 
     def determine_plane_2D(self) -> tuple[np.ndarray, np.ndarray]:
@@ -102,13 +103,13 @@ class LandingPlanner(Node):
         else:
             centroid_world = centroid_body
             normal_world = normal_body
-            self.get_logger().warn(f'No body position to transform centroid and normal from body to world frame!')
+            self.get_logger().warn(f'No body position to transform centroid and normal from body to world frame! Defaulting to body frame.')
 
         # Handle degenerate case: if line_vec ∥ x_axis, cross product is zero
-        if np.linalg.norm(normal) < 1e-6:
+        if np.linalg.norm(normal_world) < 1e-6:
             raise ValueError("Line vector and x-axis are parallel, cannot define a unique plane.")
 
-        normal /= np.linalg.norm(normal)
+        normal_world /= np.linalg.norm(normal_world)
         self.publish_centroid(centroid_world)
         self.publish_normal(normal_world)
         return centroid_world, normal_world, centroid_body, normal_body
@@ -142,6 +143,23 @@ class LandingPlanner(Node):
         self.publish_normal(normal_world)
         return centroid_world, normal_world, centroid_body, normal_body  # plane passes through centroid with this normal
 
+    def plan_landing(self):
+        # Landing start point above the centroid of the plane
+        landing_point = self.centroid_world + np.array([0., 0., -self.landing_offset])
+        heading = self.plane_heading_rad()
+        self.publish_landing_point(landing_point, heading)
+
+        # Calculate end-effector desired locations in body frame
+        self.get_logger().info(f"Surface incline angle: {np.rad2deg(self.calculate_surface_incline(self.normal_world)):.2f} deg")
+        manipulator_body_z = self.leg_z + self.horizontal_leg_man_distance*np.tan(self.calculate_surface_incline(self.normal_world))
+        arm1_ee_position_body = np.array([self.x_manipulator_distance, self.y_manipulator_distance, manipulator_body_z])
+        arm2_ee_position_body = np.array([self.x_manipulator_distance, -self.y_manipulator_distance, manipulator_body_z])
+
+        self.get_logger().info(f'Manipulator 1 body targets: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f}')
+        self.get_logger().info(f'Manipulator 2 body targets: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f}')
+        
+        self.publish_desired_manipulator_positions(arm1_ee_position_body, arm2_ee_position_body)
+
     # Helper functions
     def plane_heading_rad(self):
         """
@@ -159,8 +177,10 @@ class LandingPlanner(Node):
         heading = np.arctan2(nx, ny)  # angle from North (y-axis)
         return heading % (2*np.pi)
 
-    def calculate_surface_incline(normal):
+    def calculate_surface_incline(self, normal):
         z_axis = np.array([0,0,1]) # Up to comply with intuition
+        if normal.shape[0] != 3:
+            self.get_logger().error(f"Input needs to be of dimension 3, is of dimension {normal.shape}")
         return np.arccos(np.abs(np.dot(normal, z_axis)) / np.linalg.norm(normal))
 
     def publish_normal(self, vector:np.array):
@@ -212,6 +232,9 @@ class LandingPlanner(Node):
         self.body_position[2] = msg.z
 
         # TODO: Also consider pitch and yaw from the orientation quaternion
+    
+    def md_callback(self, msg):
+        self.md_state = msg.data
 
     def rotate_body_to_world(self, vector:np.array):
         rotmat = np.array([[np.cos(self.body_heading), -np.sin(self.body_heading), 0.0],
