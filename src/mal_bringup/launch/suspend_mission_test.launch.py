@@ -29,6 +29,19 @@ def generate_launch_description():
     )
     ld.add_action(servo_driver)
 
+    # Manipulator kinematic controller
+    manipulator_controller = Node(
+        package='manipulator_controller',
+        executable='manipulator_controller',
+        name="manipulator_controller",
+        output='screen',
+        parameters=[
+            {'minimum_pivot_distance': 1.2}, # 1.0 is about the lowest you should go
+        ],
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+    ld.add_action(manipulator_controller)
+
     # Mission director
     mission_director = Node(
         package='mission_director',
@@ -37,8 +50,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'frequency': major_frequency},
-            {'probing_speed': 0.05},
-            {'probing_direction': [0., 0., 1.]}
+            {'probing_speed': 0.01},
+            {'probing_direction': [0., 0., -1.]}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 

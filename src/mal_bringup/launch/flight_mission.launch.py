@@ -38,7 +38,7 @@ def generate_launch_description():
         name='WObs',
         output='screen',
         parameters=[
-            {'frequency': 100.0},
+            {'frequency': 50.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
             {'alpha_force': 0.4}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
@@ -63,7 +63,7 @@ def generate_launch_description():
         name="MCon",
         output='screen',
         parameters=[
-            {'minimum_pivot_distance': 0.3}
+            {'minimum_pivot_distance': 1.3}
         ],
         arguments=["--ros-args", "--log-level", "info"]
     )
@@ -73,7 +73,7 @@ def generate_launch_description():
     landing_planner = Node(
         package='landing_planner',
         executable='landing_planner',
-        name='LPla',
+        name='landing_planner',
         output='screen',
         parameters=[
             {'dimension': 2},
@@ -87,10 +87,12 @@ def generate_launch_description():
     mission_director = Node(
         package='mission_director',
         executable=md_name,
-        name='MDir',
+        name='mission_director',
         output='screen',
         parameters=[
             {'frequency': major_frequency},
+            {'position_clip': 2.5},
+            {'takeoff_altitude': -0.5},
             {'probing_speed': 0.01},
             {'probing_direction': probing_direction_body}
         ],

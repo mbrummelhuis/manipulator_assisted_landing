@@ -34,7 +34,7 @@ class LandingPlanner(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1
         )
-        self.subscription_contact_point = self.create_subscription(PointStamped, '/contact/out/contact_point', self.contact_point_callback, 10)
+        self.subscription_contact_point = self.create_subscription(PointStamped, '/contact/out/contact_point_coords', self.contact_point_callback, 10)
         self.subscription_local_position = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.local_position_callback, qos_profile)
         self.subscription_mission_director = self.create_subscription(Int32, '/md/state', self.md_callback, 10)
         # Publisher

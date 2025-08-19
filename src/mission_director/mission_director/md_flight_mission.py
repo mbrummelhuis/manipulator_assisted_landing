@@ -54,6 +54,10 @@ class MissionDirectorPy(Node):
         # Servo interfacing
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
+        self.servo_mode_client = self.create_client(SetMode, 'set_servo_mode')
+        while not self.servo_mode_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for servo set mode service')
+        self.mode_set_req = SetMode.Request()
 
         # Manipulator interface
         self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
@@ -146,15 +150,14 @@ class MissionDirectorPy(Node):
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, -1.6,
-                    -pi/3, 0.0, 1.6)
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
                 self.publishMDState(2)
                 if self.first_state_loop:
-                    self.get_logger().info('Default config -- Suspend drone and continue')
                     self.first_state_loop = False
 
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state('sim_arm_offboard') # TODO switch to wait for arm offboard in real flight
+                    self.transition_state('wait_for_arm_offboard') # TODO switch to wait for arm offboard in real flight
 
             case('wait_for_arm_offboard'):
                 self.publishMDState(3)
@@ -169,23 +172,6 @@ class MissionDirectorPy(Node):
                 elif not self.armed and self.offboard:
                     self.get_logger().info('Not armed but offboard -- waiting')
                 elif (self.armed and self.offboard) or self.input_state == 1:
-                    self.transition_state('takeoff')
-
-            case('sim_arm_offboard'):
-                if not self.offboard and self.counter%self.frequency==0:
-                    #self.get_logger().info("Sending offboard command")
-                    self.engage_offboard_mode()
-                    self.counter = 0
-                if not self.armed and self.offboard and self.counter%self.frequency==0:
-                    #self.get_logger().info("Sending arm command")
-                    self.armVehicle()
-                    self.counter = 0
-
-                self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
-
-                self.publishMDState(3)
-                if self.armed and self.offboard:
                     self.transition_state('takeoff')
 
             case('takeoff'): # Takeoff - wait for takeoff altitude
@@ -212,16 +198,20 @@ class MissionDirectorPy(Node):
             case('move_arms_to_start_position'):
                 self.publishMDState(5)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
                 if self.first_state_loop:
                     # Get the angle w.r.t. [0., 0., 1.] to align the arms
-                    probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([np.linalg.norm(self.probing_direction_body[0:2]), self.probing_direction_body[2]]))
+                    probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([self.probing_direction_body[1], self.probing_direction_body[2]]))
+                    self.get_logger().info(f"Probing direction angle w.r.t. positive body z: {probing_direction_angle:.3f} [rad]")
                     rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
                     rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
+                    self.get_logger().info(f"Arm 1 rotated setpoint: {rotated_arm1_nominal[0]:.2f}, {rotated_arm1_nominal[1]:.2f}, {rotated_arm1_nominal[2]:.2f}")
+                    self.get_logger().info(f"Arm 2 rotated setpoint: {rotated_arm2_nominal[0]:.2f}, {rotated_arm2_nominal[1]:.2f}, {rotated_arm2_nominal[2]:.2f}")
 
                     self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
                     self.first_state_loop = False
+                    # TODO figure out way to enforce elbow up condition here
 
                 # State transition
                 if not self.offboard and not self.dry_test:
@@ -236,11 +226,12 @@ class MissionDirectorPy(Node):
 
                 if self.first_state_loop:
                     self.first_state_loop = False
+                    self.get_logger().info(f"Setting mode to 1")
                     self.srv_set_servo_mode(1)
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1 or self.future.result().success:
+                elif self.input_state == 1 and self.future.result().success: # If the service is not completed, self.future is None!
                     self.transition_state('probing')
             
             # Verify after here
@@ -343,7 +334,24 @@ class MissionDirectorPy(Node):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
                 self.transition_state('emergency')
 
+    def srv_set_servo_mode(self, mode):
+        # Set all servos to the specified mode (4 = continuous position, 1 = velocity)
+        self.mode_set_req.operating_mode = mode
+        self.future = self.servo_mode_client.call_async(self.mode_set_req)
+        self.future.add_done_callback(self._set_mode_response_callback)
+
+    def _set_mode_response_callback(self, future):
+        self.future = future
+        try:
+            response = self.future.result()
+            self.get_logger().info(f"Servo mode set: {response.success}")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")    
+
     def get_align_heading(self):
+        """
+        Get the heading that aligns the manipulator plane with the probing vector
+        """
         # Normalize the probing direction vector and find horizontal projection
         normalized_probing_direction = self.probing_direction_body/np.linalg.norm(self.probing_direction_body)
         horizontal_projection = np.array([normalized_probing_direction[0], normalized_probing_direction[1]])
@@ -586,7 +594,7 @@ class MissionDirectorPy(Node):
             self.get_logger().info('Manually triggered state transition')
             self.input_state = 0
         self.state_start_time = datetime.datetime.now() # Reset start time for next state
-        self.first_state_loop = False # Reset first loop flag
+        self.first_state_loop = True # Reset first loop flag
         self.get_logger().info(f"Transition from {self.FSM_state} to {new_state}")
         self.FSM_state = new_state
         self.counter = 0

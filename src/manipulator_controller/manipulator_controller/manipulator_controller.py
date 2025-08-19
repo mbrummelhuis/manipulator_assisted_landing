@@ -13,8 +13,12 @@ L3 = 0.330
 
 class ManipulatorController(Node):
     def __init__(self):
+        """
+        Kinematic controller for the arm in the UAM's body frame. No timer but is driven by commands on the EE cartesian position
+        or velocity.
+        """
         super().__init__('manipulator_controller')
-        self.declare_parameter('minimum_pivot_distance', 0.3)
+        self.declare_parameter('minimum_pivot_distance', 1.5)
 
         self.min_pivot_distance = self.get_parameter('minimum_pivot_distance').get_parameter_value().double_value
 
@@ -194,8 +198,8 @@ class ManipulatorController(Node):
         clipped_positions[5] = np.clip(positions[5], -1.85, 1.85)
 
         # Test if not colliding on ring gear
-        if abs(positions[0] - positions[3]) < 0.3: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
-            self.get_logger().error(f"Ring gear collision risk: {positions[0]:.2f}, {positions[3]:.2f}")
+        if abs(positions[0] - positions[3]) < self.min_pivot_distance: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
+            self.get_logger().error(f"(P) Ring gear collision risk: {positions[0]:.2f}, {positions[3]:.2f}")
             clipped_positions[0] = self.servo_state.position[0]
             clipped_positions[3] = self.servo_state.position[3]
         msg = JointState()
@@ -208,8 +212,9 @@ class ManipulatorController(Node):
     
     def publish_servo_velocities(self, velocities):
         # In case of collision stop the arms
-        if abs(self.servo_state.position[0] - self.servo_state.position[3]) < 0.3: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
-            self.get_logger().error(f"Ring gear collision risk: {self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
+        self.get_logger().info(f"{self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
+        if abs(self.servo_state.position[0] - self.servo_state.position[3]) < self.min_pivot_distance: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
+            self.get_logger().error(f"(V) Ring gear collision risk: {self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
             velocities = [0.0 for i in range(len(velocities))]
 
         msg = JointState()

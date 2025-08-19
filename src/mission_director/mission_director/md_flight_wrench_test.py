@@ -54,6 +54,10 @@ class MissionDirectorPy(Node):
         # Servo interfacing
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
+        self.servo_mode_client = self.create_client(SetMode, '/set_servo_mode')
+        while not self.servo_mode_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for servo set mode service')
+        self.mode_set_req = SetMode.Request()
 
         # Manipulator interface
         self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/manipulator/in/position', 10)
@@ -79,6 +83,9 @@ class MissionDirectorPy(Node):
         self.contact_counter = 0
         self.x_setpoint = None
         self.y_setpoint = None
+        self.retract_right = False
+        self.retract_left = False
+        self.landing_start_position = None
         self.most_recent_contact_point = None
         self.arm_1_positions = np.array([0.0, 0.0, 0.0])
         self.arm_1_velocities = np.array([0.0, 0.0, 0.0])
@@ -124,9 +131,12 @@ class MissionDirectorPy(Node):
 
             case('wait_for_servo_driver'):
                 self.publishMDState(1)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 # State transition
-                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
-                    self.transition_state('prepare_takeoff')
+                if self.input_state == 1:
+                    self.transition_state('switch_to_velocity_mode')
 
             case('prepare_takeoff'):
                 self.move_arms_to_joint_position(
@@ -202,10 +212,25 @@ class MissionDirectorPy(Node):
                 if self.input_state == 1:
                     self.transition_state('land')
 
+            case('switch_to_velocity_mode'): # TODO transition here from previous state in real flight (sim has no change mode service)
+                self.publishMDState(10)
+                #self.publishOffboardPositionMode()
+                #self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.first_state_loop = False
+                    self.get_logger().info(f"Setting mode to 1")
+                    self.srv_set_servo_mode(1)
+
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.input_state == 1 and self.future.result().success: # If the service is not completed, self.future is None!
+                    self.transition_state('probing')            
+
             case('probing'):
                 self.publishMDState(11)
-                self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+                #self.publishOffboardPositionMode()
+                #self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
 
                 if self.first_state_loop:
                     self.contact_counter = 0
@@ -259,6 +284,10 @@ class MissionDirectorPy(Node):
                     -1.75, 0.0, 1.82)
 
             case('emergency'):
+                # Set mode to position
+                if self.first_state_loop:
+                    self.srv_set_servo_mode(4)
+
                 self.move_arms_to_joint_position(
                     1.75, 0.0, -1.82,
                     -1.75, 0.0, 1.82)
@@ -268,6 +297,20 @@ class MissionDirectorPy(Node):
             case(_):
                 self.get_logger().error('State not recognized: {self.FSM_state}')
                 self.transition_state('emergency')
+
+    def srv_set_servo_mode(self, mode):
+        # Set all servos to the specified mode (4 = continuous position, 1 = velocity)
+        self.mode_set_req.operating_mode = mode
+        self.future = self.servo_mode_client.call_async(self.mode_set_req)
+        self.future.add_done_callback(self._set_mode_response_callback)
+
+    def _set_mode_response_callback(self, future):
+        self.future = future
+        try:
+            response = self.future.result()
+            self.get_logger().info(f"Servo mode set: {response.success}")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")    
 
     def get_align_heading(self):
         # Normalize the probing direction vector and find horizontal projection
@@ -446,9 +489,11 @@ class MissionDirectorPy(Node):
         if msg.data == 1: # Right arm
             self.retract_right = True
             self.last_contact_time_right = datetime.datetime.now()
+            self.get_logger().info(f"Contact on right arm {msg.data}, retracting")
         elif msg.data == 2: # Left arm
             self.retract_left = True
             self.last_contact_time_left = datetime.datetime.now()
+            self.get_logger().info(f"Contact on left arm {msg.data}, retracting")
         self.contact_counter += 1
 
     def joint_states_callback(self, msg):
@@ -481,7 +526,7 @@ class MissionDirectorPy(Node):
             self.get_logger().info('Manually triggered state transition')
             self.input_state = 0
         self.state_start_time = datetime.datetime.now() # Reset start time for next state
-        self.first_state_loop = False # Reset first loop flag
+        self.first_state_loop = True # Reset first loop flag
         self.get_logger().info(f"Transition from {self.FSM_state} to {new_state}")
         self.FSM_state = new_state
         self.counter = 0
