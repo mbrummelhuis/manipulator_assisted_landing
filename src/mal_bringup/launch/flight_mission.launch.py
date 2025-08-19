@@ -14,7 +14,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 logging = True
 major_frequency = 25.
 md_name = 'mission_director_flight_mission'
-probing_direction_body = [0., 0., -1.]
+probing_direction_body = [0., 0., 1.]
 
 def generate_launch_description():
     ld = LaunchDescription()
@@ -48,7 +48,7 @@ def generate_launch_description():
             {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
             {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
             {'alpha_motor_inputs': 0.3}, # 1 is no filtering
-            {'angle_threshold': 45.},
+            {'angle_threshold': 45.}, # [deg] 
             {'probing_direction': probing_direction_body},
             {'contact_timeout_sec': 0.5},
         ],

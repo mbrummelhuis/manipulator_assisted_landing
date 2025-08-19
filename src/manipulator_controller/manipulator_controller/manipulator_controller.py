@@ -212,7 +212,6 @@ class ManipulatorController(Node):
     
     def publish_servo_velocities(self, velocities):
         # In case of collision stop the arms
-        self.get_logger().info(f"{self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
         if abs(self.servo_state.position[0] - self.servo_state.position[3]) < self.min_pivot_distance: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
             self.get_logger().error(f"(V) Ring gear collision risk: {self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")
             velocities = [0.0 for i in range(len(velocities))]

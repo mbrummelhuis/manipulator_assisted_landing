@@ -79,7 +79,8 @@ class LandingPlanner(Node):
                 self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_3D()
                 self.plan_landing()
         else:
-            self.get_logger().warn(f"Contact point received but not saved. Is MD in correct state?")
+            #self.get_logger().warn(f"Contact point received but not saved. Is MD in correct state?")
+            pass
         return
 
     def determine_plane_2D(self) -> tuple[np.ndarray, np.ndarray]:

@@ -97,8 +97,8 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.4, -0.1]) # Nominal XYZ posiiton in FRD body frame
-        self.arm_2_nominal = np.array([0.0, -0.4, -0.1]) # Nominal XYZ posiiton in FRD body frame
+        self.arm_1_nominal = np.array([0.0, 0.4, 0.05]) # Nominal XYZ posiiton in FRD body frame
+        self.arm_2_nominal = np.array([0.0, -0.4, 0.05]) # Nominal XYZ posiiton in FRD body frame
 
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
@@ -110,6 +110,7 @@ class MissionDirectorPy(Node):
         self.probing_direction_body = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
         self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
         self.get_logger().info(f'probing downward speed {self.probing_speed}')
+        self.get_logger().info(f'Probing body velocity vector: {self.probing_direction_body}')
         self.workspace_radius = L_1+L_2+L_3
         self.get_logger().info(f'Maximum workspace radius {self.workspace_radius}')
 
@@ -145,7 +146,7 @@ class MissionDirectorPy(Node):
             case('wait_for_servo_driver'):
                 self.publishMDState(1)
                 # State transition
-                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                if (datetime.datetime.now() - self.state_start_time).seconds > 2 or self.input_state == 1:
                     self.transition_state('default_config')
 
             case('default_config'):
@@ -202,7 +203,13 @@ class MissionDirectorPy(Node):
 
                 if self.first_state_loop:
                     # Get the angle w.r.t. [0., 0., 1.] to align the arms
-                    probing_direction_angle = self.signed_angle_2d(np.array([0., 1.]), np.array([self.probing_direction_body[1], self.probing_direction_body[2]]))
+                    downward_direction = np.array([0., 1.])
+                    probing_direction_yz = np.array([self.probing_direction_body[1], self.probing_direction_body[2]])
+                    self.get_logger().info(f'Downward direction: {downward_direction}, length {len(downward_direction)}, shape {downward_direction.shape}, type {type(downward_direction)}')
+                    self.get_logger().info(f'Probing direction YZ: {probing_direction_yz}, length {len(probing_direction_yz)}, shape {probing_direction_yz.shape}, type {type(probing_direction_yz)}')
+                    
+                    probing_direction_angle = self.signed_angle_2d(downward_direction, probing_direction_yz)
+
                     self.get_logger().info(f"Probing direction angle w.r.t. positive body z: {probing_direction_angle:.3f} [rad]")
                     rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
                     rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
@@ -578,7 +585,8 @@ class MissionDirectorPy(Node):
     def R2(self, angle:float, vector:np.array) -> np.array:
         return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]) @ vector
 
-    def signed_angle_2d(v1: np.array, v2: np.array) -> float:
+    def signed_angle_2d(self, v1: np.array, v2: np.array) -> float:
+
         # Normalize
         v1_u = v1 / np.linalg.norm(v1)
         v2_u = v2 / np.linalg.norm(v2)
