@@ -76,14 +76,14 @@ class ManipulatorController(Node):
             return
 
     def callback_velocity(self, msg):
-        self.get_logger().info("--- ARM 1 ---", throttle_duration_sec=1)
+        #self.get_logger().info("--- ARM 1 ---", throttle_duration_sec=1)
         solution1 = self.velocity_inverse_kinematics([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z], arm=1)
-        self.get_logger().info("--- ARM 2 ---", throttle_duration_sec=1)
+        #self.get_logger().info("--- ARM 2 ---", throttle_duration_sec=1)
         solution2 = self.velocity_inverse_kinematics([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z], arm=2)
 
         if solution1 and solution2 and self.servo_state:
             self.publish_servo_velocities(solution1 + solution2)
-            self.get_logger().info(f'Velocity solutions: {solution1[0]:.2f}, {solution1[1]:.2f}, {solution1[2]:.2f} \t {solution2[0]:.2f}, {solution2[1]:.2f}, {solution2[2]:.2f}', throttle_duration_sec=1)
+            self.get_logger().info(f'Velocity solutions: arm 1 {solution1[0]:.2f}, {solution1[1]:.2f}, {solution1[2]:.2f} \t arm 2 {solution2[0]:.2f}, {solution2[1]:.2f}, {solution2[2]:.2f}', throttle_duration_sec=1)
         elif not self.servo_state:
             self.get_logger().error(f'Servo state not set!')
             return
@@ -160,7 +160,7 @@ class ManipulatorController(Node):
             q2 = self.servo_state.position[4]
             q3 = self.servo_state.position[5]            
 
-        self.get_logger().info(f'Current states: {q1:.2f} rad \t {q2:.2f} rad \t {q3:.2f} rad ', throttle_duration_sec=1)
+        #self.get_logger().info(f'Current states: {q1:.2f} rad \t {q2:.2f} rad \t {q3:.2f} rad ', throttle_duration_sec=1)
 
          # Evaluate jacobian
         jacobian = np.empty((3,3))
@@ -178,11 +178,15 @@ class ManipulatorController(Node):
         jacobian_pinv = np.linalg.pinv(jacobian)
         joint_velocities = jacobian_pinv @ np.array(target_velocity)
 
-        self.get_logger().info(f'Velocities: {joint_velocities[0]:.4f} rad \t {joint_velocities[1]:.4f} rad \t {joint_velocities[2]:.4f} rad ', throttle_duration_sec=1)
+        #self.get_logger().info(f'Velocities: {joint_velocities[0]:.4f} rad \t {joint_velocities[1]:.4f} rad \t {joint_velocities[2]:.4f} rad ', throttle_duration_sec=1)
 
         EE_velocity = jacobian @ joint_velocities
 
-        self.get_logger().info(f'EE velocity: {EE_velocity[0]:.2f}, {EE_velocity[1]:.2f}, {EE_velocity[2]:.2f}', throttle_duration_sec=1)
+        self.get_logger().info(f'Velocity IK for arm {arm} \n \
+                               Joint positions: {q1:.2f}, {q2:.2f}, {q3:.2f} \n \
+                               Commanded velocity: {target_velocity[0]:.2f}, {target_velocity[1]:.2f}, {target_velocity[2]:.2f}, \n \
+                               Resulting joint velocities: {joint_velocities[0]:.4f}, {joint_velocities[1]:.4f}, {joint_velocities[2]:.4f} \n \
+                               Back calculated EE velocity: {EE_velocity[0]:.2f}, {EE_velocity[1]:.2f}, {EE_velocity[2]:.2f}', throttle_duration_sec=1)
 
         return joint_velocities.tolist()
 
