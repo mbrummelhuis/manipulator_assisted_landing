@@ -83,7 +83,7 @@ class ManipulatorController(Node):
 
         if solution1 and solution2 and self.servo_state:
             self.publish_servo_velocities(solution1 + solution2)
-            self.get_logger().info(f'Velocity solutions: arm 1 {solution1[0]:.2f}, {solution1[1]:.2f}, {solution1[2]:.2f} \t arm 2 {solution2[0]:.2f}, {solution2[1]:.2f}, {solution2[2]:.2f}', throttle_duration_sec=1)
+            #self.get_logger().info(f'Velocity solutions: arm 1 {solution1[0]:.2f}, {solution1[1]:.2f}, {solution1[2]:.2f} \t arm 2 {solution2[0]:.2f}, {solution2[1]:.2f}, {solution2[2]:.2f}', throttle_duration_sec=1)
         elif not self.servo_state:
             self.get_logger().error(f'Servo state not set!')
             return
@@ -191,7 +191,7 @@ class ManipulatorController(Node):
         return joint_velocities.tolist()
 
     
-    def publish_servo_positions(self, positions):
+    def publish_servo_positions(self, positions): # TODO publish current velocities
         # Clip for safety
         clipped_positions = np.empty(len(positions))
         clipped_positions[0] = np.clip(positions[0], -np.pi, np.pi)
@@ -214,7 +214,7 @@ class ManipulatorController(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo.publish(msg)
     
-    def publish_servo_velocities(self, velocities):
+    def publish_servo_velocities(self, velocities): # TODO publish current positions
         # In case of collision stop the arms
         if abs(self.servo_state.position[0] - self.servo_state.position[3]) < self.min_pivot_distance: # Left arm (2) runs in negative half, Right arm (1) runs in positive half
             self.get_logger().error(f"(V) Ring gear collision risk: {self.servo_state.position[0]:.2f}, {self.servo_state.position[3]:.2f}")

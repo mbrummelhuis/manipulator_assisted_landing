@@ -92,7 +92,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 2.5},
-            {'takeoff_altitude': -1.0},
+            {'takeoff_altitude': -0.6},
             {'probing_speed': 0.01},
             {'probing_direction': probing_direction_body}
         ],

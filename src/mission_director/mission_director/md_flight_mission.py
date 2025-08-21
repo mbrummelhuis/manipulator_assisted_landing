@@ -224,7 +224,7 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
-                    self.transition_state('probing')  
+                    self.transition_state('switch_to_velocity_mode')  
 
             case('switch_to_velocity_mode'): # TODO transition here from previous state in real flight (sim has no change mode service)
                 self.publishMDState(10)
@@ -238,7 +238,7 @@ class MissionDirectorPy(Node):
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1 and self.future.result().success: # If the service is not completed, self.future is None!
+                elif self.future is not None and self.future.result().success: # If the service is not completed, self.future is None!
                     self.transition_state('probing')
             
             # Verify after here
@@ -333,7 +333,7 @@ class MissionDirectorPy(Node):
                     -1.578, 0.0, 1.85)
                 self.publishMDState(-1)
                 if self.counter% (2*self.frequency) == 0: # Publish message every 2 seconds
-                    self.get_logger().warn("Emergency state - no offboard mode")
+                    self.get_logger().warn("Emergency state - no offboard mode", throttle_duration_sec=1)
                     self.counter = 0
                 self.counter +=1
 
