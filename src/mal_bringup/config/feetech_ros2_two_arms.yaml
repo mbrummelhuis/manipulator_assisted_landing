@@ -11,7 +11,7 @@
 
     servos:
       ids: [11, 32, 13, 1, 2, 3] 
-      operating_modes: [4, 4, 4, 4, 4, 4] # Velocity mode 2, continuous position mode 4
+      operating_modes: [4, 4, 4, 4, 4, 4] # Velocity mode 1, continuous position mode 4
       homing_modes: [1, 1, 1, 1, 1, 1] #
       directions: [-1, -1, -1, 1, 1, -1] #,
       max_speeds: [0.2, 0.2, 0.2, 0.2, 0.2, 0.2] # rad/s
