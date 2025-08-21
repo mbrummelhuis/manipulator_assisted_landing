@@ -97,7 +97,8 @@ class LandingPlanner(Node):
 
         # Cross product gives the plane normal
         normal_body = np.cross(line_vec_body, self.x_axis)
-
+        
+        # Translate and rotate from body frame to world frame
         if self.body_position is not None:
             centroid_world = centroid_body + self.body_position
             normal_world = self.rotate_body_to_world(normal_body)
@@ -113,6 +114,12 @@ class LandingPlanner(Node):
         normal_world /= np.linalg.norm(normal_world)
         self.publish_centroid(centroid_world)
         self.publish_normal(normal_world)
+        self.get_logger().info(f"Plane determination triggered! \n \
+                               Contact points: {len(self.contact_points)} \n \
+                               1: {self.contact_points[0][0]:.2f}, {self.contact_points[0][1]:.2f}, {self.contact_points[0][2]:.2f} \n \
+                               2: {self.contact_points[1][0]:.2f}, {self.contact_points[1][1]:.2f}, {self.contact_points[1][2]:.2f} \n \
+                               Centroid: {centroid_world[0]:.2f}, {centroid_world[1]:.2f}, {centroid_world[2]:.2f} \n \
+                               Normal: {normal_world[0]:.2f}, {normal_world[1]:.2f}, {normal_world[2]:.2f} ")
         return centroid_world, normal_world, centroid_body, normal_body
 
     def determine_plane_3D(self) -> tuple[np.array, np.array]:
@@ -151,16 +158,18 @@ class LandingPlanner(Node):
         self.publish_landing_point(landing_point, heading)
 
         # Calculate end-effector desired locations in body frame
-        self.get_logger().info(f"Surface incline angle: {np.rad2deg(self.calculate_surface_incline(self.normal_world)):.2f} deg")
         manipulator_body_z = self.leg_z + self.horizontal_leg_man_distance*np.tan(self.calculate_surface_incline(self.normal_world))
         arm1_ee_position_body = np.array([self.x_manipulator_distance, self.y_manipulator_distance, manipulator_body_z])
         arm2_ee_position_body = np.array([self.x_manipulator_distance, -self.y_manipulator_distance, manipulator_body_z])
 
-        self.get_logger().info(f'Manipulator 1 body targets: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f}')
-        self.get_logger().info(f'Manipulator 2 body targets: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f}')
-        
         self.publish_desired_manipulator_positions(arm1_ee_position_body, arm2_ee_position_body)
 
+        self.get_logger().info(f"Landing planned: \n \
+                                Manipulator 1 body targets: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f} \n \
+                                Manipulator 2 body targets: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f} \n \
+                                Surface incline angle: {np.rad2deg(self.calculate_surface_incline(self.normal_world)):.2f} deg \n \
+                                Landing start point: {landing_point[0]:.2f}, {landing_point[1]:.2f}, {landing_point[2]:.2f} \n \
+                                Plane heading: {np.rad2deg(heading):.2f} [deg]")
     # Helper functions
     def plane_heading_rad(self):
         """

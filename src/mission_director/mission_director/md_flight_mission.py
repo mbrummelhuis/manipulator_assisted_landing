@@ -74,7 +74,7 @@ class MissionDirectorPy(Node):
 
         # Set initial data
         self.FSM_state = 'entrypoint'
-        self.dry_test = True
+        self.dry_test = False
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
@@ -226,7 +226,7 @@ class MissionDirectorPy(Node):
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
                     self.transition_state('switch_to_velocity_mode')  
 
-            case('switch_to_velocity_mode'): # TODO transition here from previous state in real flight (sim has no change mode service)
+            case('switch_to_velocity_mode'): 
                 self.publishMDState(10)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
@@ -292,13 +292,13 @@ class MissionDirectorPy(Node):
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1 and self.future.result().success:
+                elif self.future.result() is not None and self.future.result().success:
                     self.transition_state('pre_landing')
 
             case('pre_landing'):
                 self.publishMDState(21)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.landing_start_position.x, self.landing_start_position.y, self.landing_start_position.z, self.landing_start_position.heading)                
+                self.publishTrajectoryPositionSetpoint(self.landing_start_position.x, self.landing_start_position.y, self.landing_start_position.z, self.landing_start_position.heading, yawspeed=0.2)                
 
                 if self.first_state_loop:
                     self.first_state_loop = False
