@@ -262,18 +262,21 @@ class MissionDirectorPy(Node):
                     self.move_arms_in_xyz_velocity(-velocity_vector_body, velocity_vector_body)
                 elif self.retract_right and self.retract_left:
                     self.move_arms_in_xyz_velocity(-velocity_vector_body, -velocity_vector_body)
-                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1:
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1 and np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) < self.workspace_radius-0.1:
                     self.move_arms_in_xyz_velocity(np.zeros(3), velocity_vector_body)
-                elif np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
+                    self.get_logger().info(f"Arm 1 in workspace edge", throttle_duration_sec=1)
+                elif np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1 and np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) < self.workspace_radius-0.1:
                     self.move_arms_in_xyz_velocity(velocity_vector_body, np.zeros(3))
+                    self.get_logger().info(f"Arm 2 in workspace edge", throttle_duration_sec=1)
                 elif np.linalg.norm(self.position_forward_kinematics(self.arm_1_positions)) > self.workspace_radius-0.1 and np.linalg.norm(self.position_forward_kinematics(self.arm_2_positions)) > self.workspace_radius-0.1:
                     self.move_arms_in_xyz_velocity(np.zeros(3), np.zeros(3))
+                    self.get_logger().info(f"Both arms in workspace edge", throttle_duration_sec=1)
 
 
                 # Conditions for stopping retraction after contact (2 seconds)
-                if (datetime.datetime.now() - self.last_contact_time_right).seconds > 2.:
+                if (datetime.datetime.now() - self.last_contact_time_right).seconds > 3.:
                     self.retract_right = False
-                if (datetime.datetime.now() - self.last_contact_time_left).seconds > 2.:
+                if (datetime.datetime.now() - self.last_contact_time_left).seconds > 3.:
                     self.retract_left = False
 
                 if not self.offboard and not self.dry_test:
@@ -298,7 +301,7 @@ class MissionDirectorPy(Node):
             case('pre_landing'):
                 self.publishMDState(21)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.landing_start_position.x, self.landing_start_position.y, self.landing_start_position.z, self.landing_start_position.heading, yawspeed=0.2)                
+                self.publishTrajectoryPositionSetpoint(self.landing_start_position.position[0], self.landing_start_position.position[1], self.landing_start_position.position[2], self.landing_start_position.yaw, yawspeed=0.2)                
 
                 if self.first_state_loop:
                     self.first_state_loop = False
@@ -329,7 +332,8 @@ class MissionDirectorPy(Node):
 
             case('emergency'):
                 if self.first_state_loop:
-                    self.srv_set_servo_mode(1)
+                    self.srv_set_servo_mode(4)
+                    self.first_state_loop = False
                 self.move_arms_to_joint_position(
                     1.578, 0.0, -1.85,
                     -1.578, 0.0, 1.85)

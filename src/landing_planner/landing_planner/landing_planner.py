@@ -165,11 +165,12 @@ class LandingPlanner(Node):
         self.publish_desired_manipulator_positions(arm1_ee_position_body, arm2_ee_position_body)
 
         self.get_logger().info(f"Landing planned: \n \
-                                Manipulator 1 body targets: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f} \n \
-                                Manipulator 2 body targets: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f} \n \
+                                Manipulator 1 targets [body]: {arm1_ee_position_body[0]:.2f}, {arm1_ee_position_body[1]:.2f}, {arm1_ee_position_body[2]:.2f} \n \
+                                Manipulator 2 targets [body]: {arm2_ee_position_body[0]:.2f}, {arm2_ee_position_body[1]:.2f}, {arm2_ee_position_body[2]:.2f} \n \
                                 Surface incline angle: {np.rad2deg(self.calculate_surface_incline(self.normal_world)):.2f} deg \n \
-                                Landing start point: {landing_point[0]:.2f}, {landing_point[1]:.2f}, {landing_point[2]:.2f} \n \
-                                Plane heading: {np.rad2deg(heading):.2f} [deg]")
+                                Landing start point [world]: {landing_point[0]:.2f}, {landing_point[1]:.2f}, {landing_point[2]:.2f} \n \
+                                Plane heading: {np.rad2deg(heading):.2f} [deg] \n \
+                                Current UAV heading: {np.rad2deg(self.body_heading)} [deg]")
     # Helper functions
     def plane_heading_rad(self):
         """

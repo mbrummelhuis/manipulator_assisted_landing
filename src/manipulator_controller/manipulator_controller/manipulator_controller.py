@@ -1,11 +1,14 @@
 import math
 import rclpy
 from rclpy.node import Node
+import datetime
 
 import numpy as np
-
+from std_msgs.msg import Int32
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import TwistStamped
+
+from feetech_ros2.srv import SetMode
 
 L1 = 0.110
 L2 = 0.317
@@ -188,8 +191,7 @@ class ManipulatorController(Node):
                                Resulting joint velocities: {joint_velocities[0]:.4f}, {joint_velocities[1]:.4f}, {joint_velocities[2]:.4f} \n \
                                Back calculated EE velocity: {EE_velocity[0]:.2f}, {EE_velocity[1]:.2f}, {EE_velocity[2]:.2f}', throttle_duration_sec=1)
 
-        return joint_velocities.tolist()
-
+        return joint_velocities.tolist() 
     
     def publish_servo_positions(self, positions): # TODO publish current velocities
         # Clip for safety
