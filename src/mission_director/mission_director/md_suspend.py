@@ -92,15 +92,33 @@ class MissionDirectorPy(Node):
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.6,
-                    -pi/3, 0.0, -1.6)
+                    pi/3, 0.0, 1.7,
+                    -pi/3, 0.0, -1.7)
                 self.publishMDState(1)
                 if self.first_state_loop:
                     self.get_logger().info('Default config -- Suspend drone and continue')
                     self.first_state_loop = False
 
                 if self.input_state == 1:
-                    self.transition_state('test_set_mode')
+                    self.transition_state('test_landing_config')
+                    self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
+                    self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
+
+            case('probing_position'):
+                self.move_arms_to_xyz_position(self.xyz_setpoint1, self.xyz_setpoint2)
+
+                if np.linalg.norm(self.xyz_setpoint1) < self.workspace_radius:
+                    self.xyz_setpoint1 += self.probing_speed*self.probing_direction*self.timer_period
+                
+                if np.linalg.norm(self.xyz_setpoint2) < self.workspace_radius:
+                    self.xyz_setpoint2 += self.probing_speed*self.probing_direction*self.timer_period
+
+
+                self.get_logger().info(f"Arm 1 XYZ setpoints: {self.xyz_setpoint1[0]:.2f}, {self.xyz_setpoint1[1]:.2f}, {self.xyz_setpoint1[2]:.2f}", throttle_duration_sec=1)
+                self.get_logger().info(f"Arm 2 XYZ setpoints: {self.xyz_setpoint2[0]:.2f}, {self.xyz_setpoint2[1]:.2f}, {self.xyz_setpoint2[2]:.2f}", throttle_duration_sec=1)
+
+                if self.input_state == 1:
+                    self.transition_state('stop_servos')
 
             case('test_set_mode'):
                 self.publishMDState(2)
@@ -135,8 +153,8 @@ class MissionDirectorPy(Node):
             case('test_set_position_mode'):
                 self.publishMDState(4)
                 self.move_arms_to_xyz_position( # Start publishing position commands before changing mode to ensure manipulator does not go to 0
-                    np.array([0.08, 0.53, 0.05]),
-                    np.array([0.08, -0.53, 0.05]))                 
+                    np.array([0.08, 0.45, 0.15]),
+                    np.array([0.08, -0.45, 0.15]))                 
                 if self.first_state_loop:
                     self.get_logger().info('Testing servo position mode switch')
                     self.srv_set_servo_mode(4)
@@ -153,11 +171,11 @@ class MissionDirectorPy(Node):
             case('test_landing_config'):
                 self.publishMDState(5)
                 if self.first_state_loop:
-                    self.get_logger().info('Testing servo position mode switch')
+                    self.get_logger().info('Landing config')
                     self.first_state_loop = False
                 self.move_arms_to_xyz_position(
-                    np.array([0.08, 0.53, 0.05]),
-                    np.array([0.08, -0.53, 0.05]))                 
+                    np.array([0.12, 0.45, 0.3]),
+                    np.array([0.12, -0.45, 0.3]))                 
                 if self.input_state == 1:
                     self.transition_state('done')
 
@@ -165,9 +183,9 @@ class MissionDirectorPy(Node):
             case('stop_servos'):
                 self.publishMDState(4)
                 if self.first_state_loop:
-                    self.get_logger().info('Stop servo velocity mode')
+                    self.get_logger().info('Stop servos')
                     self.first_state_loop = False
-                self.publish_arms_velocity_commands(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+                self.move_arms_to_joint_position(*self.arm_1_positions, *self.arm_2_positions)
 
 
     def srv_set_servo_mode(self, mode):

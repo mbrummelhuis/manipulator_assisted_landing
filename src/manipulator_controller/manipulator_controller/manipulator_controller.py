@@ -62,13 +62,18 @@ class ManipulatorController(Node):
                     lowest_diff = diff
                     best_solution2 = solution2
 
+            back_calculated1 = self.position_forward_kinematics(*best_solution1)
+            back_calculated2 = self.position_forward_kinematics(*best_solution2)
+
             self.get_logger().info("--- ARM 1 ---", throttle_duration_sec=1)
             self.get_logger().info(f"Current joint positions: {self.servo_state.position[0]:.2f} \t {self.servo_state.position[1]:.2f} \t {self.servo_state.position[2]:.2f}", throttle_duration_sec=1)
             self.get_logger().info(f"Commanded joint positions: {best_solution1[0]:.2f} \t {best_solution1[1]:.2f} \t {best_solution1[2]:.2f}", throttle_duration_sec=1)
-
+            self.get_logger().info(f"Back-calculated manipulator XYZ: {back_calculated1[0]:.2f}, {back_calculated1[1]:.2f}, {back_calculated1[2]:.2f}", throttle_duration_sec=1)
             self.get_logger().info("--- ARM 2 ---", throttle_duration_sec=1)
             self.get_logger().info(f"Current joint positions: {self.servo_state.position[3]:.2f} \t {self.servo_state.position[4]:.2f} \t {self.servo_state.position[5]:.2f}", throttle_duration_sec=1)
             self.get_logger().info(f"Commanded joint positions: {best_solution2[0]:.2f} \t {best_solution2[1]:.2f} \t {best_solution2[2]:.2f}", throttle_duration_sec=1)
+            self.get_logger().info(f"Back-calculated manipulator XYZ: {back_calculated2[0]:.2f}, {back_calculated2[1]:.2f}, {back_calculated2[2]:.2f}", throttle_duration_sec=1)
+            
             self.publish_servo_positions(best_solution1 + best_solution2)
         
         elif not solutions_1 or not solutions_2 and self.servo_state:
@@ -229,6 +234,12 @@ class ManipulatorController(Node):
         msg.effort = [0.0 for i in range(len(velocities))]
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo.publish(msg)
+
+    def position_forward_kinematics(self, q_1, q_2, q_3):
+        x_BS = -L2*np.sin(q_2) - L3*np.sin(q_2)*np.cos(q_3)
+        y_BS = L1*np.sin(q_1) + L2*np.sin(q_1)*np.cos(q_2) + L3*np.sin(q_1)*np.cos(q_2)*np.cos(q_3) + L3*np.sin(q_3)*np.cos(q_1)
+        z_BS = -L1*np.cos(q_1) - L2*np.cos(q_1)*np.cos(q_2) + L3*np.sin(q_1)*np.sin(q_3) - L3*np.cos(q_1)*np.cos(q_2)*np.cos(q_3)
+        return [x_BS, y_BS, z_BS]
 
 def main():
     rclpy.init(args=None)

@@ -50,7 +50,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'frequency': major_frequency},
-            {'probing_speed': 0.01},
+            {'probing_speed': 0.05},
             {'probing_direction': [0., 0., -1.]}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
