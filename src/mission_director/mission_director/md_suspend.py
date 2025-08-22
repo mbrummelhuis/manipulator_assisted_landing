@@ -88,24 +88,15 @@ class MissionDirectorPy(Node):
         match self.FSM_state:
             case('entrypoint'): # Entry point - wait for position fix
                 if self.input_state == 1:
-                    self.transition_state(new_state='test_ik_node')
+                    self.transition_state(new_state='default_config')
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, -1.6,
-                    -pi/3, 0.0, 1.6)
+                    pi/3, 0.0, 1.6,
+                    -pi/3, 0.0, -1.6)
                 self.publishMDState(1)
                 if self.first_state_loop:
                     self.get_logger().info('Default config -- Suspend drone and continue')
-                    self.first_state_loop = False
-
-                if self.input_state == 1:
-                    self.transition_state('test_ik_node')
-            
-            case('test_ik_node'):
-                self.publishMDState(2)
-                if self.first_state_loop:
-                    self.move_arms_to_xyz_position(self.arm_1_nominal, self.arm_2_nominal)
                     self.first_state_loop = False
 
                 if self.input_state == 1:
@@ -134,7 +125,28 @@ class MissionDirectorPy(Node):
 
                 if self.input_state == 1:
                     self.publish_arms_velocity_commands(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-                    self.transition_state('stop_servos')
+                    self.transition_state('test_set_position_mode')
+            
+            case('test_set_position_mode'):
+                self.publishMDState(4)
+                if self.first_state_loop:
+                    self.get_logger().info('Testing servo position mode switch')
+                    self.srv_set_servo_mode(4)
+                    self.first_state_loop = False             
+                if self.input_state == 1 and self.future.result().success:
+                    self.transition_state('test_landing_config')
+            
+            case('test_landing_config'):
+                self.publishMDState(5)
+                if self.first_state_loop:
+                    self.get_logger().info('Testing servo position mode switch')
+                    self.first_state_loop = False
+                self.move_arms_to_xyz_position(
+                    np.array([0.08, 0.53, 0.05]),
+                    np.array([0.08, -0.53, 0.05]))                 
+                if self.input_state == 1:
+                    self.transition_state('done')
+
 
             case('stop_servos'):
                 self.publishMDState(4)
