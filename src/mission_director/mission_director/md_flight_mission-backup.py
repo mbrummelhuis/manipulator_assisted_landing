@@ -161,7 +161,6 @@ class MissionDirectorPy(Node):
                     -pi/2, 0.0, 1.82)
                 self.publishMDState(2)
                 if self.first_state_loop:
-                    self.srv_set_servo_max_speed(0.5)
                     self.first_state_loop = False
 
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
@@ -231,8 +230,23 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
+                    self.transition_state('switch_to_velocity_mode')  
+
+            case('switch_to_velocity_mode'): 
+                self.publishMDState(10)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.first_state_loop = False
+                    self.get_logger().info(f"Setting mode to 1")
+                    self.srv_set_servo_mode(1)
+
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.future.result() is not None and self.future.result().success: # If the service is not completed, self.future is None!
+                    self.transition_state('probing')
                     self.srv_set_servo_max_speed(0.1)
-                    self.transition_state('probing')  
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
 
@@ -268,6 +282,20 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None or self.input_state == 1:
+                    self.transition_state('switch_to_position_mode')
+
+            case('switch_to_position_mode'):
+                self.publishMDState(20)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.get_align_heading())
+
+                if self.first_state_loop:
+                    self.first_state_loop = False
+                    self.srv_set_servo_mode(4)
+
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.future.result() is not None and self.future.result().success:
                     self.transition_state('pre_landing')
 
             case('pre_landing'):

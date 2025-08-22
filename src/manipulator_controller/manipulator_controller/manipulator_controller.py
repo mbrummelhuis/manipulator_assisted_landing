@@ -1,14 +1,10 @@
 import math
 import rclpy
 from rclpy.node import Node
-import datetime
 
 import numpy as np
-from std_msgs.msg import Int32
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import TwistStamped
-
-from feetech_ros2.srv import SetMode
 
 L1 = 0.110
 L2 = 0.317
@@ -213,6 +209,11 @@ class ManipulatorController(Node):
             self.get_logger().error(f"(P) Ring gear collision risk: {positions[0]:.2f}, {positions[3]:.2f}")
             clipped_positions[0] = self.servo_state.position[0]
             clipped_positions[3] = self.servo_state.position[3]
+        elif abs(positions[0] - positions[3]) > 2*np.pi-self.min_pivot_distance:
+            self.get_logger().error(f"(P) Ring gear collision risk: {positions[0]:.2f}, {positions[3]:.2f}")
+            clipped_positions[0] = self.servo_state.position[0]
+            clipped_positions[3] = self.servo_state.position[3]
+            
         msg = JointState()
         msg.name = ['q'+str(i) for i in range(len(clipped_positions))]
         msg.position = clipped_positions

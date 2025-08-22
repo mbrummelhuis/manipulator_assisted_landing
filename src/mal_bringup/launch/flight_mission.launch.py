@@ -91,9 +91,9 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'frequency': major_frequency},
-            {'position_clip': 2.5},
+            {'position_clip': 3.0},
             {'takeoff_altitude': -0.6},
-            {'probing_speed': 0.01},
+            {'probing_speed': 0.05},
             {'probing_direction': probing_direction_body}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
