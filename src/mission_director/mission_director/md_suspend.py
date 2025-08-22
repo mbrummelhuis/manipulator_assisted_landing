@@ -129,6 +129,9 @@ class MissionDirectorPy(Node):
             
             case('test_set_position_mode'):
                 self.publishMDState(4)
+                self.move_arms_to_xyz_position( # Start publishing position commands before changing mode to ensure manipulator does not go to 0
+                    np.array([0.08, 0.53, 0.05]),
+                    np.array([0.08, -0.53, 0.05]))                 
                 if self.first_state_loop:
                     self.get_logger().info('Testing servo position mode switch')
                     self.srv_set_servo_mode(4)
@@ -196,7 +199,7 @@ class MissionDirectorPy(Node):
         msg = JointState()
         msg.position = [q1_1, q2_1, q3_1, q1_2, q2_2, q3_2]
         msg.velocity = [0., 0., 0., 0., 0., 0.]
-        msg.name = ['q1_1', 'q2_1', 'q3_1', 'q1_2', 'q2_2', 'q3_2']
+        msg.name = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5']
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo_state.publish(msg)
 
@@ -204,7 +207,7 @@ class MissionDirectorPy(Node):
         msg = JointState()
         msg.position = [0., 0., 0., 0., 0., 0.]
         msg.velocity = [q1_1, q2_1, q3_1, q1_2, q2_2, q3_2]
-        msg.name = ['q1_1', 'q2_1', 'q3_1', 'q1_2', 'q2_2', 'q3_2']
+        msg.name = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5']
         msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_servo_state.publish(msg)
 
