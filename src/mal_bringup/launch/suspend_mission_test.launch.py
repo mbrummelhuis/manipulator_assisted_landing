@@ -11,7 +11,7 @@ Launch simulation with one arm.
 
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
-logging = True
+logging = False
 major_frequency = 25.
 
 def generate_launch_description():
@@ -36,7 +36,7 @@ def generate_launch_description():
         name="manipulator_controller",
         output='screen',
         parameters=[
-            {'minimum_pivot_distance': 1.2}, # 1.0 is about the lowest you should go
+            {'minimum_pivot_distance': 1.}, # 1.0 is about the lowest you should go
         ],
         arguments=["--ros-args", "--log-level", "info"]
     )

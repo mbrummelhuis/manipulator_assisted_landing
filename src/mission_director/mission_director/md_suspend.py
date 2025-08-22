@@ -11,7 +11,7 @@ from std_msgs.msg import Int32
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import TwistStamped
-from feetech_ros2.srv import SetMode
+from feetech_ros2.srv import SetMode, SetMaxSpeed
 
 L_1 = 0.110
 L_2 = 0.317
@@ -29,10 +29,14 @@ class MissionDirectorPy(Node):
         # Servo interfacing
         self.publisher_servo_state = self.create_publisher(JointState, '/servo/in/state', 10)
         self.subscriber_joint_states = self.create_subscription(JointState, '/servo/out/state', self.joint_states_callback, 10)
-        self.servo_mode_client = self.create_client(SetMode, 'set_servo_mode')
+        self.servo_mode_client = self.create_client(SetMode, '/set_servo_mode') # 1 is velocity, 4 is continuous position
         while not self.servo_mode_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for servo set mode service')
-        self.mode_set_req = SetMode.Request()
+        self.mode_set_req = SetMode.Request() # Set max speed in rad/s
+        self.servo_max_speed_client = self.create_client(SetMaxSpeed, '/set_servo_max_speed')
+        while not self.servo_max_speed_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for servo set max speed service')
+        self.max_speed_set_req = SetMaxSpeed.Request()
 
         # Mission director in/output
         self.subscriber_input_state = self.create_subscription(Int32, '/md/input', self.input_state_callback, 10)
@@ -92,15 +96,17 @@ class MissionDirectorPy(Node):
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.7,
-                    -pi/3, 0.0, -1.7)
+                    pi/2, 0.0, -1.7,
+                    -pi/2, 0.0, 1.7)
                 self.publishMDState(1)
                 if self.first_state_loop:
-                    self.get_logger().info('Default config -- Suspend drone and continue')
+                    self.get_logger().info('Default config')
+                    self.srv_set_servo_max_speed(0.5)
                     self.first_state_loop = False
 
                 if self.input_state == 1:
-                    self.transition_state('test_landing_config')
+                    self.srv_set_servo_max_speed(0.1)
+                    self.transition_state('probing_position')
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
 
@@ -191,16 +197,29 @@ class MissionDirectorPy(Node):
     def srv_set_servo_mode(self, mode):
         # Set all servos to the specified mode (4 = continuous position, 1 = velocity)
         self.mode_set_req.operating_mode = mode
-        self.future = self.servo_mode_client.call_async(self.mode_set_req)
-        self.future.add_done_callback(self._set_mode_response_callback)
+        self.future_mode = self.servo_mode_client.call_async(self.mode_set_req)
+        self.future_mode.add_done_callback(self._set_mode_response_callback)
 
     def _set_mode_response_callback(self, future):
-        self.future = future
+        self.future_mode = future
         try:
-            response = self.future.result()
+            response = self.future_mode.result()
             self.get_logger().info(f"Servo mode set: {response.success}")
         except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")           
+            self.get_logger().error(f"Service call failed: {e}")
+
+    def srv_set_servo_max_speed(self, max_speed):
+        self.max_speed_set_req.max_speed = max_speed
+        self.future_max_speed = self.servo_max_speed_client.call_async(self.max_speed_set_req)
+        self.future_max_speed.add_done_callback(self._set_max_speed_response_callback)
+
+    def _set_max_speed_response_callback(self, future):
+        self.future_max_speed = future
+        try:
+            response = self.future_max_speed.result()
+            self.get_logger().info(f"Servo max speed set: {response.success}")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")      
         
     def move_arms_to_xyz_position(self, target_position1, target_position2):
         msg = TwistStamped()
