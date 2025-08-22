@@ -63,12 +63,12 @@ class ManipulatorController(Node):
                     best_solution2 = solution2
 
             self.get_logger().info("--- ARM 1 ---", throttle_duration_sec=1)
-            self.get_logger().info(f"Current positions: {self.servo_state.position[0]:.2f} \t {self.servo_state.position[1]:.2f} \t {self.servo_state.position[2]:.2f}", throttle_duration_sec=1)
-            self.get_logger().info(f"Commanded positions: {best_solution1[0]:.2f} \t {best_solution1[1]:.2f} \t {best_solution1[2]:.2f}", throttle_duration_sec=1)
+            self.get_logger().info(f"Current joint positions: {self.servo_state.position[0]:.2f} \t {self.servo_state.position[1]:.2f} \t {self.servo_state.position[2]:.2f}", throttle_duration_sec=1)
+            self.get_logger().info(f"Commanded joint positions: {best_solution1[0]:.2f} \t {best_solution1[1]:.2f} \t {best_solution1[2]:.2f}", throttle_duration_sec=1)
 
             self.get_logger().info("--- ARM 2 ---", throttle_duration_sec=1)
-            self.get_logger().info(f"Current positions: {self.servo_state.position[3]:.2f} \t {self.servo_state.position[4]:.2f} \t {self.servo_state.position[5]:.2f}", throttle_duration_sec=1)
-            self.get_logger().info(f"Commanded positions: {best_solution2[0]:.2f} \t {best_solution2[1]:.2f} \t {best_solution2[2]:.2f}", throttle_duration_sec=1)
+            self.get_logger().info(f"Current joint positions: {self.servo_state.position[3]:.2f} \t {self.servo_state.position[4]:.2f} \t {self.servo_state.position[5]:.2f}", throttle_duration_sec=1)
+            self.get_logger().info(f"Commanded joint positions: {best_solution2[0]:.2f} \t {best_solution2[1]:.2f} \t {best_solution2[2]:.2f}", throttle_duration_sec=1)
             self.publish_servo_positions(best_solution1 + best_solution2)
         
         elif not solutions_1 or not solutions_2 and self.servo_state:

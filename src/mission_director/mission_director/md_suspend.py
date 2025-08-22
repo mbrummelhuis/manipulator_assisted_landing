@@ -107,7 +107,12 @@ class MissionDirectorPy(Node):
                 if self.first_state_loop:
                     self.get_logger().info('Testing servo set mode')
                     self.first_state_loop = False
-                
+
+                    self.srv_set_servo_mode(1)
+
+                # If unsuccesfull, retry service call
+                if (self.future.result() is not None and self.future.result().success is False):
+                    self.get_logger().info("Retrying set mode service call")
                     self.srv_set_servo_mode(1)
 
                 if self.input_state == 1 and self.future.result().success:
@@ -135,7 +140,13 @@ class MissionDirectorPy(Node):
                 if self.first_state_loop:
                     self.get_logger().info('Testing servo position mode switch')
                     self.srv_set_servo_mode(4)
-                    self.first_state_loop = False             
+                    self.first_state_loop = False
+                
+                # If unsuccesfull, retry service call
+                if (self.future.result() is not None and self.future.result().success is False):
+                    self.get_logger().info("Retrying set mode service call")
+                    self.srv_set_servo_mode(4)
+
                 if self.input_state == 1 and self.future.result().success:
                     self.transition_state('test_landing_config')
             
