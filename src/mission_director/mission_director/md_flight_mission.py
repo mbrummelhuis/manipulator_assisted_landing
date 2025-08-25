@@ -92,7 +92,7 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.5
+        self.contact_altitude = -0.4
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None

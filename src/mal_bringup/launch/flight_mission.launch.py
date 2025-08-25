@@ -46,7 +46,7 @@ def generate_launch_description():
             {'alpha_angular_velocity': 0.2},
             {'alpha_accelerometer': 0.2},
             {'force_contact_threshold': 4.5}, # [N] net linear force necessary to conclude contact
-            {'torque_contact_threshold': 0.4}, # [Nm] net momentnecessary to conclude contact
+            {'torque_contact_threshold': 0.6}, # [Nm] net momentnecessary to conclude contact
             {'alpha_motor_inputs': 0.2}, # 1 is no filtering
             {'angle_threshold': 45.},
             {'probing_direction': probing_direction_body},
