@@ -1,0 +1,76 @@
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
+
+from ament_index_python.packages import get_package_share_directory
+import os
+import datetime
+
+"""
+Launch simulation with one arm.
+
+The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
+"""
+logging = True
+major_frequency = 50.
+md_name = 'mission_director_flight_photos'
+probing_direction_body = [0., 0., 1.]
+
+def generate_launch_description():
+    ld = LaunchDescription()
+    
+    #Servo driver
+    param_file = os.path.join(get_package_share_directory('mal_bringup'), 'config', 'feetech_ros2_two_arms.yaml')
+    servo_driver = Node(
+        package="feetech_ros2",
+        executable="feetech_ros2_interface",
+        name="feetech_ros2_interface",
+        output="screen",
+        parameters=[param_file],
+        arguments=["--ros-args", "--log-level", "fatal"] # Suppress most logs
+    )
+    ld.add_action(servo_driver)
+
+    # Manipulator kinematic controller
+    manipulator_controller = Node(
+        package='manipulator_controller',
+        executable='manipulator_controller',
+        name="MCon",
+        output='screen',
+        parameters=[
+            {'minimum_pivot_distance': 1.3}
+        ],
+        arguments=["--ros-args", "--log-level", "info"]
+    )
+    ld.add_action(manipulator_controller)
+
+    # Mission director
+    mission_director = Node(
+        package='mission_director',
+        executable=md_name,
+        name='mission_director',
+        output='screen',
+        parameters=[
+            {'frequency': major_frequency},
+            {'position_clip': 3.0},
+            {'takeoff_altitude': -1.4},
+            {'probing_speed': 0.05}, # 
+            {'probing_direction': probing_direction_body}
+        ],
+        arguments=["--ros-args", "--log-level", "info"] # Log level info
+
+    )
+    ld.add_action(mission_director)
+
+    # ROSBAG logging
+    if logging:
+        rosbag_name = 'ros2bag_mission_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
+        rosbag_process = ExecuteProcess(
+            cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],
+            output='screen',
+            log_cmd=True,
+        )
+        ld.add_action(rosbag_process)
+
+    return ld

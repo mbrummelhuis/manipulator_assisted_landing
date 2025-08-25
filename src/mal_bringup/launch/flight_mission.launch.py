@@ -12,7 +12,7 @@ Launch simulation with one arm.
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
 logging = True
-major_frequency = 25.
+major_frequency = 50.
 md_name = 'mission_director_flight_mission'
 probing_direction_body = [0., 0., 1.]
 
@@ -38,7 +38,7 @@ def generate_launch_description():
         name='wrench_observer_simple',
         output='screen',
         parameters=[
-            {'frequency': 50.0},
+            {'frequency': 100.0},
             {'gain_force': 1.0}, # Should be unity following the dynamics
             {'alpha_force': 0.3}, # 1 is no filtering
             {'gain_torque': 1.0}, # Should be unity following the dynamics
@@ -92,7 +92,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 3.0},
-            {'takeoff_altitude': -1.5},
+            {'takeoff_altitude': -1.1},
             {'probing_speed': 0.05}, # 
             {'probing_direction': probing_direction_body}
         ],
