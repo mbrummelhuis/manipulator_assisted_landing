@@ -78,7 +78,7 @@ class MissionDirectorPy(Node):
 
         # Set initial data
         self.FSM_state = 'entrypoint'
-        self.dry_test = False
+        self.dry_test = True
         self.first_state_loop = True
         self.input_state = 0
         self.position_clip = self.get_parameter('position_clip').get_parameter_value().double_value
@@ -103,9 +103,10 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
-        self.arm_2_nominal = np.array([0.0, -0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
-
+        #self.arm_1_nominal = np.array([0.0, 0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
+        self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
+        #self.arm_2_nominal = np.array([0.0, -0.53, 0.05]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
+        self.arm_2_nominal = np.array([0.0, -0.53, -0.35])
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
         
@@ -165,7 +166,7 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
 
                 if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
-                    self.transition_state('wait_for_arm_offboard') # TODO switch to wait for arm offboard in real flight
+                    self.transition_state('move_arms_to_start_position') # TODO switch to wait for arm offboard in real flight
 
             case('wait_for_arm_offboard'):
                 self.publishMDState(3)
@@ -187,8 +188,8 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.6,
-                    -pi/3, 0.0, -1.6)
+                    pi/2, 0.0, -1.6,
+                    -pi/2, 0.0, 1.6)
                 current_altitude = self.vehicle_local_position.z
 
                 # First state loop
@@ -208,6 +209,7 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.vehicle_local_position.heading)
 
+                # First time the state is called, find the probing direction and align the arms
                 if self.first_state_loop:
                     # Get the angle w.r.t. [0., 0., 1.] to align the arms
                     downward_direction = np.array([0., 1.])
@@ -217,11 +219,11 @@ class MissionDirectorPy(Node):
                     
                     probing_direction_angle = self.signed_angle_2d(downward_direction, probing_direction_yz)
 
-                    self.get_logger().info(f"Probing direction angle w.r.t. positive body z: {probing_direction_angle:.3f} [rad]")
+                    self.get_logger().info(f"Probing direction angle w.r.t. positive body z about body x: {np.rad2deg(probing_direction_angle):.3f} [deg]")
                     rotated_arm1_nominal = self.Rx(probing_direction_angle, self.arm_1_nominal)
                     rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
-                    self.get_logger().info(f"Arm 1 rotated setpoint: {rotated_arm1_nominal[0]:.2f}, {rotated_arm1_nominal[1]:.2f}, {rotated_arm1_nominal[2]:.2f}")
-                    self.get_logger().info(f"Arm 2 rotated setpoint: {rotated_arm2_nominal[0]:.2f}, {rotated_arm2_nominal[1]:.2f}, {rotated_arm2_nominal[2]:.2f}")
+                    self.get_logger().info(f"Arm 1 rotated setpoint (XYZ): {rotated_arm1_nominal[0]:.2f}, {rotated_arm1_nominal[1]:.2f}, {rotated_arm1_nominal[2]:.2f}")
+                    self.get_logger().info(f"Arm 2 rotated setpoint (XYZ): {rotated_arm2_nominal[0]:.2f}, {rotated_arm2_nominal[1]:.2f}, {rotated_arm2_nominal[2]:.2f}")
 
                     self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
                     self.first_state_loop = False
@@ -253,7 +255,7 @@ class MissionDirectorPy(Node):
 
                 # Arm 1: If in workspace, calculate new setpoint
                 if np.linalg.norm(self.xyz_setpoint1) < self.workspace_radius:
-                    self.xyz_setpoint1 += velocity_vector_body*self.timer_period*self.retract_right
+                    self.xyz_setpointtest_set_position_mode1 += velocity_vector_body*self.timer_period*self.retract_right
 
                 # Arm 2: If in workspace, calculate new setpoint
                 if np.linalg.norm(self.xyz_setpoint2) < self.workspace_radius:

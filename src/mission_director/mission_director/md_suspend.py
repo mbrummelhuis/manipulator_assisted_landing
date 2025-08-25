@@ -96,8 +96,8 @@ class MissionDirectorPy(Node):
 
             case('default_config'):
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.7,
-                    -pi/2, 0.0, 1.7)
+                    pi/3, 0.0, 1.7,
+                    -pi/3, 0.0, -1.7)
                 self.publishMDState(1)
                 if self.first_state_loop:
                     self.get_logger().info('Default config')
@@ -106,7 +106,7 @@ class MissionDirectorPy(Node):
 
                 if self.input_state == 1:
                     self.srv_set_servo_max_speed(0.1)
-                    self.transition_state('probing_position')
+                    self.transition_state('test_landing_config')
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
 
