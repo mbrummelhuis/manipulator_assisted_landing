@@ -177,8 +177,8 @@ class MissionDirectorPy(Node):
                 self.publishMDState(3)
                 self.publishOffboardPositionMode()
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, 1.6,
-                    -pi/3, 0.0, -1.6)
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
 
                 # State transition
                 if self.armed and not self.offboard:
@@ -193,8 +193,8 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    pi/3, 0.0, -1.6,
-                    -pi/3, 0.0, 1.6)
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
                 current_altitude = self.vehicle_local_position.z
 
                 # First state loop
@@ -207,7 +207,39 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('config_1')
+                    self.transition_state('ground_effect_data') # Change to config here
+
+            case('ground_effect_data'):
+                self.publishMDState(4)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -0.5, self.heading_setpoint)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
+
+                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go")
+
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 120 or self.input_state==1:
+                    self.transition_state('free_flight_data')
+
+            case('free_flight_data'):
+                self.publishMDState(4)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -1.5, self.heading_setpoint)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
+
+                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go")
+
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 120 or self.input_state==1:
+                    self.transition_state('land')
 
             case('config_1'):
                 self.publishMDState(11)
