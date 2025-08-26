@@ -210,14 +210,14 @@ class MissionDirectorPy(Node):
                     self.transition_state('ground_effect_data') # Change to config here
 
             case('ground_effect_data'):
-                self.publishMDState(4)
+                self.publishMDState(10)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -0.5, self.heading_setpoint)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -0.4, self.heading_setpoint)
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.82,
                     -pi/2, 0.0, 1.82)
 
-                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go")
+                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
@@ -226,14 +226,14 @@ class MissionDirectorPy(Node):
                     self.transition_state('free_flight_data')
 
             case('free_flight_data'):
-                self.publishMDState(4)
+                self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, -1.5, self.heading_setpoint)
                 self.move_arms_to_joint_position(
                     pi/2, 0.0, -1.82,
                     -pi/2, 0.0, 1.82)
 
-                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go")
+                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
@@ -345,8 +345,18 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.input_state == 1:
-                    self.transition_state('config_3')  
+                    self.transition_state('config_3')
 
+            case('land'):
+                self.publishMDState(22)
+                self.land()
+                if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                    self.transition_state('landed')
+
+            case('landed'):
+                self.publishMDState(23)
+                self.get_logger().info('Done')
+                self.disarmVehicle()
 
             case('emergency'):
                 self.move_arms_to_joint_position(

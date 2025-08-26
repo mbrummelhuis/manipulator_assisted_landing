@@ -13,7 +13,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 """
 logging = True
 major_frequency = 50.
-md_name = 'mission_director_flight_photos'
+md_name = 'mission_director_photos'
 probing_direction_body = [0., 0., 1.]
 
 def generate_launch_description():
@@ -89,7 +89,7 @@ def generate_launch_description():
 
     # ROSBAG logging
     if logging:
-        rosbag_name = 'ros2bag_mission_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_name = 'ros2bag_groundeffect_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
         rosbag_process = ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],
