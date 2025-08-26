@@ -92,7 +92,7 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.4
+        self.contact_altitude = -0.35
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None
@@ -122,7 +122,7 @@ class MissionDirectorPy(Node):
         self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
         self.get_logger().info(f'probing downward speed {self.probing_speed}')
         self.get_logger().info(f'Probing body velocity vector: {self.probing_direction_body}')
-        self.workspace_radius = L_1+L_2+L_3
+        self.workspace_radius = L_1+L_2+L_3 + 0.1
         self.get_logger().info(f'Maximum workspace radius {self.workspace_radius}')
 
         self.vehicle_local_position = VehicleLocalPosition()
