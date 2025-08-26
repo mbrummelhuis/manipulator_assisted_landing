@@ -375,6 +375,8 @@ class MissionDirectorPy(Node):
                 self.disarmVehicle()
 
             case('emergency'):
+                if self.first_state_loop:
+                    self.srv_set_servo_max_speed(0.5)
                 self.move_arms_to_joint_position(
                     1.578, 0.0, -1.82,
                     -1.578, 0.0, 1.82)
