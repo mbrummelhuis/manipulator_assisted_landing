@@ -170,7 +170,7 @@ class MissionDirectorPy(Node):
                     self.srv_set_servo_max_speed(0.5)
                     self.first_state_loop = False
 
-                if (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
+                if (datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1:
                     self.transition_state('wait_for_arm_offboard')
 
             case('wait_for_arm_offboard'):

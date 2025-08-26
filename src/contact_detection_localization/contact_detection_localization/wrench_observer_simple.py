@@ -90,7 +90,7 @@ class WrenchObserverSimple(Node):
 
         
         # Model parameters
-        self.thrust_coefficient = 19.5 # Obtained through experimental data previous value 19.468 18.538
+        self.thrust_coefficient = 21.0 # Obtained through experimental data previous value 19.468 18.538 21.0 with new batteries
         self.propeller_incline_angle = 5. # [deg] propeller incline in degreess
         #self.model_mass = 3.701 # [kg] with 4500 mAh batteries
         self.model_mass = 4.239 # [kg] with 6000 mAh batteries

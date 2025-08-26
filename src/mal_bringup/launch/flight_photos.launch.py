@@ -44,6 +44,31 @@ def generate_launch_description():
     )
     ld.add_action(manipulator_controller)
 
+    # Wrench estimator
+    contact_detector = Node(
+        package='contact_detection_localization',
+        executable='wrench_observer_simple',
+        name='wrench_observer_simple',
+        output='screen',
+        parameters=[
+            {'frequency': 100.0},
+            {'gain_force': 1.0}, # Should be unity following the dynamics
+            {'alpha_force': 0.15}, # 1 is no filtering
+            {'gain_torque': 1.0}, # Should be unity following the dynamics
+            {'alpha_torque': 0.15}, # 1 is no filtering
+            {'alpha_angular_velocity': 0.2},
+            {'alpha_accelerometer': 0.2},
+            {'force_contact_threshold': 10.0}, # [N] net linear force necessary to conclude contact, simple has no force threshold contact detection
+            {'torque_contact_threshold': 0.65}, # [Nm] net moment necessary to conclude contact
+            {'alpha_motor_inputs': 0.2}, # 1 is no filtering
+            {'angle_threshold': 45.},
+            {'probing_direction': probing_direction_body},
+            {'contact_timeout_sec': 0.65}, # For debouncing
+        ],
+        arguments=["--ros-args", "--log-level", "error"] # Log level info
+    )
+    ld.add_action(contact_detector)
+
     # Mission director
     mission_director = Node(
         package='mission_director',
@@ -64,7 +89,7 @@ def generate_launch_description():
 
     # ROSBAG logging
     if logging:
-        rosbag_name = 'ros2bag_groundeffect_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_name = 'ros2bag_reference_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
         rosbag_process = ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],

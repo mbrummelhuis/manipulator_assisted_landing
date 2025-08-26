@@ -207,7 +207,7 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('config_1') # Change to config here
+                    self.transition_state('ground_effect_data') # Change to config here
 
             case('ground_effect_data'):
                 self.publishMDState(10)
@@ -217,12 +217,12 @@ class MissionDirectorPy(Node):
                     pi/2, 0.0, -1.82,
                     -pi/2, 0.0, 1.82)
 
-                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
+                self.get_logger().info(f"{30. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 120 or self.input_state==1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 30 or self.input_state==1:
                     self.transition_state('free_flight_data')
 
             case('free_flight_data'):
@@ -233,12 +233,12 @@ class MissionDirectorPy(Node):
                     pi/2, 0.0, -1.82,
                     -pi/2, 0.0, 1.82)
 
-                self.get_logger().info(f"{120. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
+                self.get_logger().info(f"{30. - (datetime.datetime.now() - self.state_start_time).seconds} seconds to go", throttle_duration_sec=3)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 120 or self.input_state==1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 30 or self.input_state==1:
                     self.transition_state('land')
 
             case('config_1'):
