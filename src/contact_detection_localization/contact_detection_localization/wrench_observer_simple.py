@@ -122,6 +122,7 @@ class WrenchObserverSimple(Node):
         self.most_recent_force_estimate = np.array([0., 0., 0.])
         self.most_recent_torque_estimate = np.array([0., 0., 0.])
         self.momentum_integral = np.array([0., 0., 0.])
+        self.torque_bias = np.array([0.4, 0.06, 0.13])
 
         # Contact detection and localization
         self.contact = False
@@ -177,7 +178,7 @@ class WrenchObserverSimple(Node):
         self.momentum_integral = self.momentum_integral + (-np.cross(self.sensor_angular_velocity, current_angular_momentum) + 
                                                            self.rotational_allocation_matrix @ self.actuator_thrust + self.most_recent_torque_estimate)
         # Torque estimate is the difference between measured and model, with a gain
-        current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral) + np.array([0.3, 0.0, 0.07]) # Z torque bias term
+        current_torque_estimate = self.gain_torque @ (current_angular_momentum - self.momentum_integral) + self.torque_bias # Z torque bias term
         # self.get_logger().info(f'Torque estimate [{current_torque_estimate[0]:.2f}, {current_torque_estimate[1]:.2f}, {current_torque_estimate[2]:.2f}] [Nm]', throttle_duration_sec=1)
         # self.get_logger().info(f'Actuator moments: {(self.rotational_allocation_matrix @ self.actuator_thrust)[0]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[1]:.2f}, {(self.rotational_allocation_matrix @ self.actuator_thrust)[2]:.2f}')
         self.publish_unsmoothed_torque(current_torque_estimate)
