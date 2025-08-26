@@ -92,7 +92,7 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.35
+        self.contact_altitude = -0.85
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None
@@ -107,7 +107,7 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.45, -0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
+        self.arm_1_nominal = np.array([0.0, 0.45, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
         #self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
         self.arm_2_nominal = np.array([0.0, -0.45, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
        # self.arm_2_nominal = np.array([0.0, -0.53, -0.35])
@@ -128,7 +128,6 @@ class MissionDirectorPy(Node):
         self.vehicle_local_position = VehicleLocalPosition()
         self.state_start_time = datetime.datetime.now()
         self.counter = 0
-    
 
         # Timer -- always last
         self.counter = 0
@@ -243,7 +242,7 @@ class MissionDirectorPy(Node):
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
                     self.x_setpoint_contact = self.x_setpoint
-                    self.y_setpoint_contact = self.y_setpoint
+                    self.y_setpoint_contact = 2.0
 
             case('move_to_probing_location'):
                 self.publishMDState(6)
@@ -306,28 +305,27 @@ class MissionDirectorPy(Node):
                     self.transition_state("move_arms_to_start_position")
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
-
-                    if self.input_state == 2:
-                        self.transition_state('pre_landing')
+                    self.transition_state('pre_landing')
             
             case("stabilize_after_contact"):
                 self.publishMDState(12)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.5, self.heading_setpoint)
-                arm_1_xyz_position = self.position_forward_kinematics(*self.arm_1_positions) # pass current arm position as reference to 'freeze in place'
-                arm_2_xyz_position = self.position_forward_kinematics(*self.arm_2_positions)
+                arm_1_fk = self.position_forward_kinematics(*self.arm_1_positions) # pass current arm position as reference to 'freeze in place'
+                arm_2_fk = self.position_forward_kinematics(*self.arm_2_positions)
+                arm_1_xyz_position = np.array([0.0, self.arm_1_nominal[1], arm_1_fk[2]]) # We do this because otherwise the body y setponit of the arms may drift outwards
+                arm_2_xyz_position = np.array([0.0, self.arm_2_nominal[1], arm_2_fk[2]])
                 if self.first_state_loop:
                     self.contact_counter = 0
                     self.first_state_loop = False
                     self.landing_start_position = None # Reset landing start position
                 if self.retract_right < 0.:
-                    arm_1_goal = self.arm_1_nominal
+                    arm_1_goal = self.arm_1_nominal + np.array([0.0, 0.0, -0.2])
                     self.get_logger().info("Moving right arm to upwards position")
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_goal[0]:.3f}, {arm_1_goal[1]:.3f}, {arm_1_goal[2]:.3f} ")
                     self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_xyz_position[0]:.2f}, {arm_2_xyz_position[1]:.2f}, {arm_2_xyz_position[2]:.2f}")
                     self.move_arms_to_xyz_position(arm_1_goal, arm_2_xyz_position)
                     self.xyz_setpoint1 = self.arm_1_nominal
-                    self.retract_right = 1.
                 elif self.retract_left < 0.:
                     arm_2_goal = self.arm_2_nominal + np.array([0.0, 0.0, -0.2])
                     self.get_logger().info("Moving left arm to upwards position")
@@ -335,7 +333,6 @@ class MissionDirectorPy(Node):
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_xyz_position[0]:.3f}, {arm_1_xyz_position[1]:.3f}, {arm_1_xyz_position[2]:.3f} ")
                     self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_goal[0]:.2f}, {arm_2_goal[1]:.2f}, {arm_2_goal[2]:.2f}")
                     self.xyz_setpoint2 = self.arm_2_nominal
-                    self.retract_left = 1.
                 
                 # State transition
                 if not self.offboard and not self.dry_test:
@@ -344,9 +341,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('move_to_probing_location')
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
-
-                    if self.input_state == 2:
-                        self.transition_state('pre_landing')
+                    self.transition_state('pre_landing')
 
             case('pre_landing'):
                 self.publishMDState(21)
@@ -365,7 +360,7 @@ class MissionDirectorPy(Node):
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
+                elif ((datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1) and \
                     (self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None):
                     self.transition_state('land')
             
