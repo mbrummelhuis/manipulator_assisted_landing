@@ -92,15 +92,19 @@ class WrenchObserverSimple(Node):
         # Model parameters
         self.thrust_coefficient = 19.5 # Obtained through experimental data previous value 19.468 18.538
         self.propeller_incline_angle = 5. # [deg] propeller incline in degreess
-        self.model_mass = 3.701 # [kg]
+        #self.model_mass = 3.701 # [kg] with 4500 mAh batteries
+        self.model_mass = 4.239 # [kg] with 6000 mAh batteries
         self.acceleration_gravity = np.array([0., 0., 9.81])
         self.linear_allocation_matrix = np.array([[-np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(60.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
                                                  [-np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle)), -np.sin(np.deg2rad(30.))*np.sin(np.deg2rad(self.propeller_incline_angle))],
                                                  [-np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle)), -np.cos(np.deg2rad(self.propeller_incline_angle))]])
 
-        self.inertia = np.array([[0.071, -1.712e-5, -5.928e-6],
-                                [-1.712e-5, 0.059, -1.448e-5],
-                                [-5.928e-6, -1.448e-5, 0.121]]) # [kgm2]
+        # self.inertia = np.array([[0.071, -1.712e-5, -5.928e-6],
+        #                         [-1.712e-5, 0.059, -1.448e-5],
+        #                         [-5.928e-6, -1.448e-5, 0.121]]) # [kgm2] with old 4500 mAh battery
+        self.inertia = np.array([[0.072, -1.111e-5, -7.294e-6],
+                                 [-1.111e-5, 0.067, -1.552e-5],
+                                 [-7.294e-6, -1.552e-5, 0.128]])
 
         arm_x = 0.184 # [m] Moment arm along the body x-axis
         arm_y = 0.231 # [m] Moment arm along the body y-axis
