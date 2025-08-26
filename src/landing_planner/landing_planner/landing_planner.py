@@ -194,7 +194,7 @@ class LandingPlanner(Node):
         nx, ny, _ = self.normal_world
         if np.isclose(nx, 0) and np.isclose(ny, 0):
             return 0.0  # horizontal plane, heading undefined, assume 0
-        heading = np.arctan2(nx, ny)  # angle from North (y-axis)
+        heading = np.arctan2(ny, nx)  # angle from North (x-axis)
         return heading % (2*np.pi)
 
     def calculate_surface_incline(self, normal):
