@@ -298,7 +298,7 @@ class MissionDirectorPy(Node):
                 # State transitions
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.retract_right < 0. or self.retract_left < 0.:
+                elif self.retract_right < -1.5 or self.retract_left < -1.5:
                     self.transition_state("stabilize_after_contact")
                 elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius and np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius and self.landing_start_position is None:
                     self.contact_altitude += 0.1 # If out of workspace and no landing location, try again hovering 10 cm lower.
@@ -319,21 +319,24 @@ class MissionDirectorPy(Node):
                     self.contact_counter = 0
                     self.first_state_loop = False
                     self.landing_start_position = None # Reset landing start position
-                if self.retract_right < 0.:
+
+                if self.retract_right < -1.5:
                     arm_1_goal = self.arm_1_nominal + np.array([0.0, 0.0, -0.2])
                     self.get_logger().info("Moving right arm to upwards position")
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_goal[0]:.3f}, {arm_1_goal[1]:.3f}, {arm_1_goal[2]:.3f} ")
                     self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_xyz_position[0]:.2f}, {arm_2_xyz_position[1]:.2f}, {arm_2_xyz_position[2]:.2f}")
                     self.move_arms_to_xyz_position(arm_1_goal, arm_2_xyz_position)
                     self.xyz_setpoint1 = self.arm_1_nominal
-                elif self.retract_left < 0.:
+                    self.retract_right = -1.0
+                elif self.retract_left < -1.5:
                     arm_2_goal = self.arm_2_nominal + np.array([0.0, 0.0, -0.2])
                     self.get_logger().info("Moving left arm to upwards position")
                     self.move_arms_to_xyz_position(arm_1_xyz_position, arm_2_goal)
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_xyz_position[0]:.3f}, {arm_1_xyz_position[1]:.3f}, {arm_1_xyz_position[2]:.3f} ")
                     self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_goal[0]:.2f}, {arm_2_goal[1]:.2f}, {arm_2_goal[2]:.2f}")
                     self.xyz_setpoint2 = self.arm_2_nominal
-                
+                    self.retract_left = -1.0
+
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
@@ -619,6 +622,7 @@ class MissionDirectorPy(Node):
         self.arm_2_effort[2] = msg.effort[5] # Elbow
 
     def landing_point_callback(self, msg):
+        self.get_logger().info(f"Received landing location!")
         self.landing_start_position = msg
 
     def landing_manipulator_callback(self, msg):
