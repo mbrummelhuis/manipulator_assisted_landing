@@ -321,7 +321,7 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
                     self.landing_start_position = None # Reset landing start position
                 if self.retract_right < 0.:
-                    arm_1_goal = self.arm_1_nominal + np.array([0.0, 0.0, -0.2])
+                    arm_1_goal = self.arm_1_nominal
                     self.get_logger().info("Moving right arm to upwards position")
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_goal[0]:.3f}, {arm_1_goal[1]:.3f}, {arm_1_goal[2]:.3f} ")
                     self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_xyz_position[0]:.2f}, {arm_2_xyz_position[1]:.2f}, {arm_2_xyz_position[2]:.2f}")
@@ -329,10 +329,11 @@ class MissionDirectorPy(Node):
                     self.xyz_setpoint1 = self.arm_1_nominal
                     self.retract_right = 1.
                 elif self.retract_left < 0.:
+                    arm_2_goal = self.arm_2_nominal + np.array([0.0, 0.0, -0.2])
                     self.get_logger().info("Moving left arm to upwards position")
-                    self.move_arms_to_xyz_position(arm_1_xyz_position, self.arm_2_nominal)
+                    self.move_arms_to_xyz_position(arm_1_xyz_position, arm_2_goal)
                     self.get_logger().info(f"Arm 1 goal position xyz: {arm_1_xyz_position[0]:.3f}, {arm_1_xyz_position[1]:.3f}, {arm_1_xyz_position[2]:.3f} ")
-                    self.get_logger().info(f"Arm 2 goal position xyz: { self.arm_2_nominal[0]:.2f}, { self.arm_2_nominal[1]:.2f}, { self.arm_2_nominal[2]:.2f}")
+                    self.get_logger().info(f"Arm 2 goal position xyz: {arm_2_goal[0]:.2f}, {arm_2_goal[1]:.2f}, {arm_2_goal[2]:.2f}")
                     self.xyz_setpoint2 = self.arm_2_nominal
                     self.retract_left = 1.
                 
