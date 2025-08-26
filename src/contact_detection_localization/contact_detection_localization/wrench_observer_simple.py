@@ -188,7 +188,7 @@ class WrenchObserverSimple(Node):
 
     def contact_detection_localization(self):
         # If norm of force estimate is high enough, assume contact
-        if np.linalg.norm(self.most_recent_force_estimate) > self.force_contact_threshold or np.linalg.norm(self.most_recent_torque_estimate)> self.torque_contact_threshold:
+        if np.linalg.norm(self.most_recent_torque_estimate)> self.torque_contact_threshold:
             self.get_logger().info(f'Contact detected! Force magnitude: {np.linalg.norm(self.most_recent_force_estimate):.2f}, Torque magnitude {np.linalg.norm(self.most_recent_torque_estimate):.2f}', throttle_duration_sec=1)
             self.contact = True
             self.contact_time = datetime.datetime.now()

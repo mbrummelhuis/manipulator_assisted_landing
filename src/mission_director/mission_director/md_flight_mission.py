@@ -107,9 +107,9 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.53, -0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
+        self.arm_1_nominal = np.array([0.0, 0.45, -0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
         #self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
-        self.arm_2_nominal = np.array([0.0, -0.53, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
+        self.arm_2_nominal = np.array([0.0, -0.45, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
        # self.arm_2_nominal = np.array([0.0, -0.53, -0.35])
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
@@ -152,7 +152,7 @@ class MissionDirectorPy(Node):
 
                 # State transition
                 if (self.x_setpoint != 0.0 and self.y_setpoint != 0.0) or self.input_state == 1:
-                    self.get_logger().info(f'Got position fix! \t x: {self.x_setpoint:.3f} \t y: {self.y_setpoint:.3f} \t {self.heading_setpoint}')
+                    self.get_logger().info(f'Got position fix! \t x: {self.x_setpoint:.3f} [m] \t y: {self.y_setpoint:.3f} [m] \t {np.rad2deg(self.heading_setpoint):.2f} [deg]')
                     self.transition_state(new_state='wait_for_servo_driver')
 
             case('wait_for_servo_driver'):
@@ -263,13 +263,14 @@ class MissionDirectorPy(Node):
                     self.transition_state('probing')  
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
+                    self.retract_left = 1.
+                    self.retract_right = 1. # Reset because maybe earlier false readings cause them to be negative
 
             # Verify after here
             case('probing'):
                 self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude, self.heading_setpoint)
-
 
                 if self.first_state_loop:
                     self.contact_counter = 0
@@ -281,40 +282,63 @@ class MissionDirectorPy(Node):
                 velocity_vector_body = self.probing_direction_body*self.probing_speed
 
                 # Arm 1: If in workspace, calculate new setpoint
-                if np.linalg.norm(self.xyz_setpoint1) < self.workspace_radius:
-                    self.xyz_setpoint1 += velocity_vector_body*self.timer_period*self.retract_right
-                elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius and self.retract_right < 0.:
-                    self.xyz_setpoint1 += velocity_vector_body*self.timer_period*self.retract_right
-                    self.get_logger().info(f"Arm 1 out of workspace radius, retracing")
+                if np.linalg.norm(self.xyz_setpoint1) < self.workspace_radius and self.retract_right > 0.:
+                    self.xyz_setpoint1 += velocity_vector_body*self.timer_period
+                elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius:
+                    self.get_logger().info(f"Arm 1 out of workspace radius", throttle_duration_sec=1)
 
                 # Arm 2: If in workspace, calculate new setpoint
-                if np.linalg.norm(self.xyz_setpoint2) < self.workspace_radius:
-                    self.xyz_setpoint2 += velocity_vector_body*self.timer_period*self.retract_left
-
-                elif np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius and self.retract_left < 0.:
-                    self.xyz_setpoint2 += velocity_vector_body*self.timer_period*self.retract_left
-                    self.get_logger().info(f"Arm 2 out of workspace radius, retracing")
-                
-                if self.retract_right < 0.:
-                    self.get_logger().info(f"Retracting right")
-                if self.retract_left < 0.:
-                    self.get_logger().info(f"Retracting left")
+                if np.linalg.norm(self.xyz_setpoint2) < self.workspace_radius and self.retract_left > 0.: # If everything all right
+                    self.xyz_setpoint2 += velocity_vector_body*self.timer_period
+                elif np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius: # If out of workspace and retracting
+                    self.get_logger().info(f"Arm 2 out of workspace radius", throttle_duration_sec=1) # if out of workspace but not retracting
 
                 self.get_logger().info(f"Arm 1 XYZ body setpoint: {self.xyz_setpoint1[0]:.2f}, {self.xyz_setpoint1[1]:.2f}, {self.xyz_setpoint1[2]:.2f}", throttle_duration_sec=1)
                 self.get_logger().info(f"Arm 2 XYZ body setpoint: {self.xyz_setpoint2[0]:.2f}, {self.xyz_setpoint2[1]:.2f}, {self.xyz_setpoint2[2]:.2f}", throttle_duration_sec=1)
-
-                # Conditions for stopping retraction after contact (2 seconds)
-                if (datetime.datetime.now() - self.last_contact_time_right).seconds > 3.:
-                    self.retract_right = 1.
-                if (datetime.datetime.now() - self.last_contact_time_left).seconds > 3.:
-                    self.retract_left = 1.
-
+                
+                # State transitions
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
+                elif self.retract_right < 0. or self.retract_left < 0.:
+                    self.transition_state("stabilize_after_contact")
+                elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius and np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius and self.landing_start_position is None:
+                    self.contact_altitude += 0.1 # If out of workspace and no landing location, try again hovering 10 cm lower.
+                    self.transition_state("move_arms_to_start_position")
                 elif self.landing_start_position is not None:
-                    self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 1 to continue", throttle_duration_sec=1)
+                    self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
 
-                    if self.input_state == 1:
+                    if self.input_state == 2:
+                        self.transition_state('pre_landing')
+            
+            case("stabilize_after_contact"):
+                self.publishMDState(12)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.5, self.heading_setpoint)
+
+                if self.first_state_loop:
+                    self.contact_counter = 0
+                    self.first_state_loop = False
+                    self.landing_start_position = None # Reset landing start position
+                if self.retract_right < 0.:
+                    self.get_logger().info("Moving right arm to upwards position")
+                    self.move_arms_to_xyz_position(self.arm_1_nominal + np.array([0.0, 0.0, -0.2]), self.xyz_setpoint2)
+                    self.xyz_setpoint1 = self.arm_1_nominal
+                    self.retract_right = 1.
+                elif self.retract_left < 0.:
+                    self.get_logger().info("Moving left arm to upwards position")
+                    self.move_arms_to_xyz_position(self.xyz_setpoint1, self.arm_2_nominal)
+                    self.xyz_setpoint2 = self.arm_2_nominal
+                    self.retract_left = 1.
+                
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 3 or self.input_state == 1:
+                    self.transition_state('move_to_probing_location')
+                elif self.landing_start_position is not None:
+                    self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
+
+                    if self.input_state == 2:
                         self.transition_state('pre_landing')
 
             case('pre_landing'):
@@ -340,13 +364,14 @@ class MissionDirectorPy(Node):
             
             case('land'):
                 self.publishMDState(22)
-                self.land()
+                if self.first_state_loop:
+                    self.land()
                 if (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('landed')
 
             case('landed'):
                 self.publishMDState(23)
-                self.get_logger().info('Done')
+                self.get_logger().info('Done',throttle_duration_sec=1)
                 self.disarmVehicle()
 
             case('emergency'):

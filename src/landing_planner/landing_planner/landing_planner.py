@@ -66,10 +66,18 @@ class LandingPlanner(Node):
         Add contact points to the database and if enough have been gathered, determine the plane.
         This callback drives the node.
         """
+        new_point = np.array([msg.point.x, msg.point.y, msg.point.z])
+
+        if len(self.contact_points) > 0: # If a contact point is present
+            diff = np.linalg.norm(self.contact_points[-1]-new_point) # Calculate the difference with the new point
+            if diff < 0.01:
+                self.get_logger().info(f"Contact point rejected: {msg.point.x:.2f}, {msg.point.y:.2f}, {msg.point.z:.2f}. Diff with last point: {diff:.4f}")
+                return
+
         if self.md_state == 11: # If in the probing MD state, save the run the node
-            new_point = np.array([msg.point.x, msg.point.y, msg.point.z])
             self.contact_points.append(new_point)
             self.get_logger().info(f"Contact point received: {msg.point.x:.2f}, {msg.point.y:.2f}, {msg.point.z:.2f}. Total points: {len(self.contact_points)}")
+
             # Once enough points have been gathered, calculate the plane
             if len(self.contact_points) == 2 and self.dimension == 2: # 2D case
                 self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_2D()
@@ -78,6 +86,7 @@ class LandingPlanner(Node):
             elif len(self.contact_points) == 3 and self.dimension == 3: # 3D case
                 self.centroid_world, self.normal_world, self.centroid_body, self.normal_body = self.determine_plane_3D()
                 self.plan_landing()
+ 
         else:
             #self.get_logger().warn(f"Contact point received but not saved. Is MD in correct state?")
             pass

@@ -207,7 +207,7 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('ground_effect_data') # Change to config here
+                    self.transition_state('config_1') # Change to config here
 
             case('ground_effect_data'):
                 self.publishMDState(10)
