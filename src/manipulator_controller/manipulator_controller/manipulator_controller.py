@@ -7,8 +7,8 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import TwistStamped
 
 L1 = 0.110
-L2 = 0.317
-L3 = 0.330
+L2 = 0.330
+L3 = 0.273
 
 class ManipulatorController(Node):
     def __init__(self):

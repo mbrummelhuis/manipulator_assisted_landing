@@ -21,8 +21,8 @@ from px4_msgs.msg import VehicleCommand
 from feetech_ros2.srv import SetMode, SetMaxSpeed
 
 L_1 = 0.110
-L_2 = 0.317
-L_3 = 0.330
+L_2 = 0.330
+L_3 = 0.273
 
 class MissionDirectorPy(Node):
     def __init__(self):
@@ -302,6 +302,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"[PROBING] LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
+                    self.srv_set_servo_max_speed(0.5)
                     self.transition_state('wait_for_landing_cmd')
                 elif self.retract_right < -1.5 or self.retract_left < -1.5:
                     self.transition_state("stabilize_after_contact")
@@ -312,7 +313,7 @@ class MissionDirectorPy(Node):
             case("stabilize_after_contact"):
                 self.publishMDState(12)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.5, self.heading_setpoint)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.2, self.heading_setpoint)
                 arm_1_fk = self.position_forward_kinematics(*self.arm_1_positions) # pass current arm position as reference to 'freeze in place'
                 arm_2_fk = self.position_forward_kinematics(*self.arm_2_positions)
                 arm_1_xyz_position = np.array([0.0, self.arm_1_nominal[1], arm_1_fk[2]]) # We do this because otherwise the body y setponit of the arms may drift outwards
@@ -320,7 +321,6 @@ class MissionDirectorPy(Node):
                 if self.first_state_loop:
                     self.contact_counter = 0
                     self.first_state_loop = False
-                    self.landing_start_position = None # Reset landing start position
 
                 if self.retract_right < -1.5:
                     arm_1_goal = self.arm_1_nominal + np.array([0.0, 0.0, -0.2])
@@ -344,6 +344,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"[STABILIZE] LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
+                    self.srv_set_servo_max_speed(0.5)
                     self.transition_state('wait_for_landing_cmd')
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('move_to_probing_location')
@@ -360,7 +361,6 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')                
                 if self.input_state == 2:
-                    self.srv_set_servo_max_speed(0.5)
                     self.transition_state('pre_landing')              
 
             case('pre_landing'):
@@ -372,15 +372,19 @@ class MissionDirectorPy(Node):
                     self.first_state_loop = False
 
                 if self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None:
-                    self.get_logger().info(f'Moving manipulator to landing position in body frame:')
-                    self.get_logger().info(f'Arm 1: {self.manipulator1_landing_position[0]:.2f}, {self.manipulator1_landing_position[1]:.2f}, {self.manipulator1_landing_position[2]:.2f}')
-                    self.get_logger().info(f'Arm 2: {self.manipulator2_landing_position[0]:.2f}, {self.manipulator2_landing_position[1]:.2f}, {self.manipulator2_landing_position[2]:.2f}')
+                    arm_1_fk = self.position_forward_kinematics(*self.arm_1_positions)
+                    arm_2_fk = self.position_forward_kinematics(*self.arm_2_positions)
+                    self.get_logger().info(f'Moving manipulator to landing position in body frame:',throttle_duration_sec=1)
+                    self.get_logger().info(f'Arm 1: {self.manipulator1_landing_position[0]:.2f}, {self.manipulator1_landing_position[1]:.2f}, {self.manipulator1_landing_position[2]:.2f}',throttle_duration_sec=1)
+                    self.get_logger().info(f'Arm 2: {self.manipulator2_landing_position[0]:.2f}, {self.manipulator2_landing_position[1]:.2f}, {self.manipulator2_landing_position[2]:.2f}',throttle_duration_sec=1)
+                    self.get_logger().info(f"Actual arm 1 positons: {arm_1_fk[0]:.2f} {arm_1_fk[1]:.2f} {arm_1_fk[2]:.2f}",throttle_duration_sec=1)
+                    self.get_logger().info(f"Actual arm 2 positons: {arm_2_fk[0]:.2f} {arm_2_fk[1]:.2f} {arm_2_fk[2]:.2f}",throttle_duration_sec=1)
 
                     self.move_arms_to_xyz_position(self.manipulator1_landing_position, self.manipulator2_landing_position)
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif ((datetime.datetime.now() - self.state_start_time).seconds > 10 or self.input_state == 1) and \
+                elif ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
                     (self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None):
                     self.transition_state('land')
             
@@ -389,9 +393,10 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.landing_start_position.position[0], self.landing_start_position.position[1], self.landing_start_position.position[2], self.landing_start_position.yaw, yawspeed=0.2)                
                 self.landing_start_position.position[2] += self.landing_speed*self.timer_period
-                self.get_logger().info(f"Altitude setpoint landing: {self.landing_start_position.position[2]} [m]",throttle_duration_sec=1)
+                self.get_logger().info(f"Altitude setpoint landing: {self.landing_start_position.position[2]:.3f} [m]",throttle_duration_sec=1)
                 if self.first_state_loop:
                     self.get_logger().info(f"Landing!")
+                    self.first_state_loop = False
                 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('landed')
