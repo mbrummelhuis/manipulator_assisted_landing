@@ -92,7 +92,7 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.85
+        self.contact_altitude = -0.8
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None
@@ -107,9 +107,9 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.45, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
+        self.arm_1_nominal = np.array([0.0, 0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
         #self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
-        self.arm_2_nominal = np.array([0.0, -0.45, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
+        self.arm_2_nominal = np.array([0.0, -0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
        # self.arm_2_nominal = np.array([0.0, -0.53, -0.35])
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
