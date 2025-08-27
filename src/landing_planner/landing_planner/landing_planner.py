@@ -41,7 +41,7 @@ class LandingPlanner(Node):
         self.publisher_plane_centroid = self.create_publisher(PointStamped, '/landing/out/centroid', 10) # For logging
         self.publisher_plane_normal = self.create_publisher(Vector3Stamped, '/landing/out/normal', 10) # For logging
 
-        self.publisher_landing_start = self.create_publisher(TrajectorySetpoint, '/landing/out/start_location', 10)
+        self.publisher_landing_start = self.create_publisher(TrajectorySetpoint, '/landing/out/start_location', qos_profile)
         self.publisher_manipulator_positions = self.create_publisher(TwistStamped, '/landing/out/manipulator', 10)
 
         # Data
@@ -106,6 +106,13 @@ class LandingPlanner(Node):
 
         # Cross product gives the plane normal
         normal_body = np.cross(line_vec_body, self.x_axis)
+
+        # Define up reference direction in body frame
+        up = np.array([0, 0, -1])
+
+        # Check alignment via dot product
+        if np.dot(normal_body, up) < 0:
+            normal_body = -normal_body  # flip if it's pointing down
         
         # Translate and rotate from body frame to world frame
         if self.body_position is not None:
@@ -146,6 +153,13 @@ class LandingPlanner(Node):
         # Singular Value Decomposition
         _, _, vh = np.linalg.svd(centered)
         normal_body = vh[-1]  # last row of vh corresponds to smallest singular value
+
+        # Define up reference direction in body frame
+        up = np.array([0, 0, -1])
+
+        # Check alignment via dot produc
+        if np.dot(normal_body, up) < 0:
+            normal_body = -normal_body  # flip if it's pointing down
 
         if self.body_position is not None:
             centroid_world = centroid_body + self.body_position
@@ -198,7 +212,7 @@ class LandingPlanner(Node):
         return heading % (2*np.pi)
 
     def calculate_surface_incline(self, normal):
-        z_axis = np.array([0,0,1]) # Up to comply with intuition
+        z_axis = np.array([0,0,-1.]) # Up to comply with intuition (z -1 is up in the NED/FRD convention)
         if normal.shape[0] != 3:
             self.get_logger().error(f"Input needs to be of dimension 3, is of dimension {normal.shape}")
         return np.arccos(np.abs(np.dot(normal, z_axis)) / np.linalg.norm(normal))

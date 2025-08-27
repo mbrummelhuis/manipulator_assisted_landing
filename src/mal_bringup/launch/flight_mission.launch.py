@@ -35,7 +35,7 @@ def generate_launch_description():
     contact_detector = Node(
         package='contact_detection_localization',
         executable='wrench_observer_simple',
-        name='wrench_observer_simple',
+        name='WObs',
         output='screen',
         parameters=[
             {'frequency': 100.0},
@@ -65,7 +65,7 @@ def generate_launch_description():
         parameters=[
             {'minimum_pivot_distance': 1.3}
         ],
-        arguments=["--ros-args", "--log-level", "info"]
+        arguments=["--ros-args", "--log-level", "error"]
     )
     ld.add_action(manipulator_controller)
 
@@ -73,7 +73,7 @@ def generate_launch_description():
     landing_planner = Node(
         package='landing_planner',
         executable='landing_planner',
-        name='landing_planner',
+        name='LPla',
         output='screen',
         parameters=[
             {'dimension': 2},
@@ -87,7 +87,7 @@ def generate_launch_description():
     mission_director = Node(
         package='mission_director',
         executable=md_name,
-        name='mission_director',
+        name='MDir',
         output='screen',
         parameters=[
             {'frequency': major_frequency},
