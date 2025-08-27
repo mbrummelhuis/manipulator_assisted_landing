@@ -301,8 +301,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
-                    if self.input_state == 2:
-                        self.transition_state('pre_landing')
+                    self.transition_state('wait_for_landing_cmd')
                 elif self.retract_right < -1.5 or self.retract_left < -1.5:
                     self.transition_state("stabilize_after_contact")
                 elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius and np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius and self.landing_start_position is None:
@@ -344,10 +343,20 @@ class MissionDirectorPy(Node):
                     self.transition_state('emergency')
                 elif self.landing_start_position is not None:
                     self.get_logger().info(f"LANDING POSITION: {self.landing_start_position.position[0]:.2F} {self.landing_start_position.position[1]:.2F} {self.landing_start_position.position[2]:.2F} \n Publish 2 to continue", throttle_duration_sec=1)
-                    if self.input_state == 2:
-                        self.transition_state('pre_landing')
+                    self.transition_state('wait_for_landing_cmd')
                 elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
                     self.transition_state('move_to_probing_location')
+
+            case('wait_for_landing_cmd'):
+                self.publishMDState(13)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.5, self.heading_setpoint)
+                
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')                
+                if self.input_state == 2:
+                    self.transition_state('pre_landing')              
 
             case('pre_landing'):
                 self.publishMDState(21)
