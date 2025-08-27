@@ -57,9 +57,9 @@ class LandingPlanner(Node):
         self.body_heading = None
         self.landing = False
         self.horizontal_leg_man_distance = 0.27
-        self.x_manipulator_distance = 0.08
+        self.x_manipulator_distance = 0.12
         self.y_manipulator_distance = 0.4
-        self.leg_z = 0.09
+        self.leg_z = 0.16
 
     def contact_point_callback(self, msg):
         """

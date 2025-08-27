@@ -46,11 +46,11 @@ def generate_launch_description():
             {'alpha_angular_velocity': 0.2},
             {'alpha_accelerometer': 0.2},
             {'force_contact_threshold': 10.0}, # [N] net linear force necessary to conclude contact, simple has no force threshold contact detection
-            {'torque_contact_threshold': 0.65}, # [Nm] net moment necessary to conclude contact
+            {'torque_contact_threshold': 0.95}, # [Nm] net moment necessary to conclude contact
             {'alpha_motor_inputs': 0.2}, # 1 is no filtering
             {'angle_threshold': 45.},
             {'probing_direction': probing_direction_body},
-            {'contact_timeout_sec': 0.65}, # For debouncing
+            {'contact_timeout_sec': 1.2}, # For debouncing
         ],
         arguments=["--ros-args", "--log-level", "error"] # Log level info
     )
@@ -65,7 +65,7 @@ def generate_launch_description():
         parameters=[
             {'minimum_pivot_distance': 1.3}
         ],
-        arguments=["--ros-args", "--log-level", "error"]
+        arguments=["--ros-args", "--log-level", "info"]
     )
     ld.add_action(manipulator_controller)
 
@@ -94,7 +94,8 @@ def generate_launch_description():
             {'position_clip': 3.0},
             {'takeoff_altitude': -1.1},
             {'probing_speed': 0.05}, # 
-            {'probing_direction': probing_direction_body}
+            {'probing_direction': probing_direction_body},
+            {"landing_speed": 0.1}
         ],
         arguments=["--ros-args", "--log-level", "info"] # Log level info
 
@@ -103,7 +104,7 @@ def generate_launch_description():
 
     # ROSBAG logging
     if logging:
-        rosbag_name = 'ros2bag_mission_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        rosbag_name = 'ros2bag_landing_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         rosbag_path = f'/ros2_ws/data/rosbags/{rosbag_name}'
         rosbag_process = ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', rosbag_path, '-a'],
