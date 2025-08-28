@@ -38,7 +38,7 @@ def generate_launch_description():
         name="MCon",
         output='screen',
         parameters=[
-            {'minimum_pivot_distance': 1.3}
+            {'minimum_pivot_distance': 1.}
         ],
         arguments=["--ros-args", "--log-level", "info"]
     )

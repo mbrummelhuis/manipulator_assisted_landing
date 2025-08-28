@@ -32,8 +32,6 @@ class MissionDirectorPy(Node):
         self.declare_parameter('frequency', 25.0)
         self.declare_parameter('position_clip', 0.0)
         self.declare_parameter('takeoff_altitude', -1.5)
-        self.declare_parameter('probing_speed', 0.05)
-        self.declare_parameter('probing_direction', [0., 0., 1.])
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -118,10 +116,6 @@ class MissionDirectorPy(Node):
         self.manipulator2_landing_position = None
         self.landing_start_position = None
 
-        self.probing_direction_body = np.array(self.get_parameter('probing_direction').get_parameter_value().double_array_value)
-        self.probing_speed = self.get_parameter('probing_speed').get_parameter_value().double_value
-        self.get_logger().info(f'probing downward speed {self.probing_speed}')
-        self.get_logger().info(f'Probing body velocity vector: {self.probing_direction_body}')
         self.workspace_radius = L_1+L_2+L_3
         self.get_logger().info(f'Maximum workspace radius {self.workspace_radius}')
 
@@ -152,7 +146,7 @@ class MissionDirectorPy(Node):
 
                 # State transition
                 if (self.x_setpoint != 0.0 and self.y_setpoint != 0.0) or self.input_state == 1:
-                    self.get_logger().info(f'Got position fix! \t x: {self.x_setpoint:.3f} \t y: {self.y_setpoint:.3f} \t {self.heading_setpoint}')
+                    self.get_logger().info(f'Got position fix! \t x: {self.x_setpoint:.3f} \t y: {self.y_setpoint:.3f} \t {self.heading_setpoint:.3f}')
                     self.transition_state(new_state='wait_for_servo_driver')
 
             case('wait_for_servo_driver'):
@@ -256,7 +250,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_2')
 
             case('config_2'):
-                self.publishMDState(11)
+                self.publishMDState(12)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -270,7 +264,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_3')
 
             case('config_3'):
-                self.publishMDState(11)
+                self.publishMDState(13)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -284,7 +278,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_4')
 
             case('config_4'):
-                self.publishMDState(11)
+                self.publishMDState(14)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -298,7 +292,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_5')
 
             case('config_5'):
-                self.publishMDState(11)
+                self.publishMDState(15)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -312,7 +306,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_6')
 
             case('config_6'):
-                self.publishMDState(11)
+                self.publishMDState(16)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -326,7 +320,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_7')
 
             case('config_7'):
-                self.publishMDState(11)
+                self.publishMDState(17)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
@@ -340,7 +334,7 @@ class MissionDirectorPy(Node):
                     self.transition_state('config_8')
 
             case('config_8'):
-                self.publishMDState(11)
+                self.publishMDState(18)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
