@@ -198,10 +198,10 @@ class ManipulatorController(Node):
         # Clip for safety
         clipped_positions = np.empty(len(positions))
         clipped_positions[0] = np.clip(positions[0], -np.pi, np.pi)
-        clipped_positions[1] = np.clip(positions[1], -np.pi/6., np.pi/6.)
+        clipped_positions[1] = np.clip(positions[1], -0.6, 0.6)
         clipped_positions[2] = np.clip(positions[2], -1.85, 1.85)
         clipped_positions[3] = np.clip(positions[3], -np.pi, np.pi)
-        clipped_positions[4] = np.clip(positions[4], -np.pi/6., np.pi/6.)
+        clipped_positions[4] = np.clip(positions[4], -0.6, 0.6)
         clipped_positions[5] = np.clip(positions[5], -1.85, 1.85)
 
         # Test if not colliding on ring gear

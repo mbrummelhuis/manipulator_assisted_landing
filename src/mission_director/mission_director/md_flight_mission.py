@@ -93,8 +93,8 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.6
-        self.contact_y_offset = -1.90
+        self.contact_altitude = -0.8
+        self.contact_y_offset = -1.5
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None
@@ -110,9 +110,9 @@ class MissionDirectorPy(Node):
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
 
-        self.arm_1_nominal = np.array([0.0, 0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
+        self.arm_1_nominal = np.array([0.0, 0.35, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
         #self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
-        self.arm_2_nominal = np.array([0.0, -0.4, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
+        self.arm_2_nominal = np.array([0.0, -0.35, 0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2
        # self.arm_2_nominal = np.array([0.0, -0.53, -0.35])
         self.previous_ee_1 = self.arm_1_nominal
         self.previous_ee_2 = self.arm_2_nominal
@@ -231,7 +231,6 @@ class MissionDirectorPy(Node):
                     rotated_arm2_nominal = self.Rx(probing_direction_angle, self.arm_2_nominal)
                     self.get_logger().info(f"Arm 1 rotated setpoint (XYZ): {rotated_arm1_nominal[0]:.2f}, {rotated_arm1_nominal[1]:.2f}, {rotated_arm1_nominal[2]:.2f}")
                     self.get_logger().info(f"Arm 2 rotated setpoint (XYZ): {rotated_arm2_nominal[0]:.2f}, {rotated_arm2_nominal[1]:.2f}, {rotated_arm2_nominal[2]:.2f}")
-
                     self.move_arms_to_xyz_position(rotated_arm1_nominal, rotated_arm2_nominal)
                     self.first_state_loop = False
                     # TODO figure out way to enforce elbow up condition here
@@ -239,7 +238,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif (datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > 4 or self.input_state == 1:
                     self.srv_set_servo_max_speed(0.2)
                     self.transition_state('move_to_probing_location')  
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
@@ -307,14 +306,14 @@ class MissionDirectorPy(Node):
                     self.transition_state('wait_for_landing_cmd')
                 elif self.retract_right < -1.5 or self.retract_left < -1.5:
                     self.transition_state("stabilize_after_contact")
-                elif np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius and np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius and self.landing_start_position is None:
+                elif (np.linalg.norm(self.xyz_setpoint1) > self.workspace_radius or np.linalg.norm(self.xyz_setpoint2) > self.workspace_radius) and self.landing_start_position is None:
                     self.contact_altitude += 0.1 # If out of workspace and no landing location, try again hovering 10 cm lower.
                     self.transition_state("move_arms_to_start_position")
             
             case("stabilize_after_contact"):
                 self.publishMDState(12)
                 self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.2, self.heading_setpoint)
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint_contact, self.y_setpoint_contact, self.contact_altitude-0.4, self.heading_setpoint)
                 arm_1_fk = self.position_forward_kinematics(*self.arm_1_positions) # pass current arm position as reference to 'freeze in place'
                 arm_2_fk = self.position_forward_kinematics(*self.arm_2_positions)
                 arm_1_xyz_position = np.array([0.0, self.arm_1_nominal[1], arm_1_fk[2]]) # We do this because otherwise the body y setponit of the arms may drift outwards

@@ -57,7 +57,7 @@ class LandingPlanner(Node):
         self.body_heading = None
         self.landing = False
         self.horizontal_leg_man_distance = 0.19
-        self.x_manipulator_distance = 0.16
+        self.x_manipulator_distance = 0.18
         self.y_manipulator_distance = 0.45
         self.leg_z = 0.11
 

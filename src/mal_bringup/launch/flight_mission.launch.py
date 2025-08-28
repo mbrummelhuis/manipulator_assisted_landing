@@ -14,7 +14,7 @@ The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.
 logging = True
 major_frequency = 25.
 md_name = 'mission_director_flight_mission'
-probing_direction_body = [0., 0., 1.]
+probing_direction_body = [0., -0.2, 1.]
 
 def generate_launch_description():
     ld = LaunchDescription()

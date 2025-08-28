@@ -122,7 +122,7 @@ class WrenchObserverSimple(Node):
         self.most_recent_force_estimate = np.array([0., 0., 0.])
         self.most_recent_torque_estimate = np.array([0., 0., 0.])
         self.momentum_integral = np.array([0., 0., 0.])
-        self.torque_bias = np.array([0.3, 0.06, 0.13])
+        self.torque_bias = np.array([0.25, 0.06, 0.13])
 
         # Contact detection and localization
         self.contact = False
