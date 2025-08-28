@@ -93,7 +93,8 @@ class MissionDirectorPy(Node):
         self.heading_setpoint = 0.0
         self.x_setpoint_contact = 0.0
         self.y_setpoint_contact = 0.0
-        self.contact_altitude = -0.7
+        self.contact_altitude = -0.6
+        self.contact_y_offset = -1.90
         self.retract_right = 1.
         self.retract_left = 1.
         self.xyz_setpoint1 = None
@@ -244,7 +245,7 @@ class MissionDirectorPy(Node):
                     self.xyz_setpoint1 = self.position_forward_kinematics(*self.arm_1_positions)
                     self.xyz_setpoint2 = self.position_forward_kinematics(*self.arm_2_positions)
                     self.x_setpoint_contact = self.x_setpoint
-                    self.y_setpoint_contact = 1.75
+                    self.y_setpoint_contact = self.contact_y_offset
                     self.retract_left = 1.
                     self.retract_right = 1. # Reset because maybe earlier false readings cause them to be negative
 
@@ -384,7 +385,7 @@ class MissionDirectorPy(Node):
 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif ((datetime.datetime.now() - self.state_start_time).seconds > 5 or self.input_state == 1) and \
+                elif ((datetime.datetime.now() - self.state_start_time).seconds > 8 or self.input_state == 1) and \
                     (self.manipulator1_landing_position is not None and self.manipulator2_landing_position is not None):
                     self.transition_state('land')
             
@@ -400,7 +401,7 @@ class MissionDirectorPy(Node):
                 
                 if not self.offboard and not self.dry_test:
                     self.transition_state('landed')
-                if abs(self.landing_start_position.position[2]-self.vehicle_local_position.z) > 1.0 or self.input_state == 1:
+                if abs(self.landing_start_position.position[2]-self.vehicle_local_position.z) > 2.0 or self.input_state == 1:
                     self.transition_state('landed')
 
             case('landed'):

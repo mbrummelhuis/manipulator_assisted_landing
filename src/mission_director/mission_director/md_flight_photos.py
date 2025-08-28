@@ -207,7 +207,7 @@ class MissionDirectorPy(Node):
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif abs(current_altitude)+0.1 > abs(self.takeoff_altitude) or self.input_state==1:
-                    self.transition_state('ground_effect_data') # Change to config here
+                    self.transition_state('config_1') # Change to config here
 
             case('ground_effect_data'):
                 self.publishMDState(10)
@@ -246,8 +246,8 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    pi/4, 0.0, -1.6,
-                    -pi/4, 0.0, 1.6)
+                    pi/4, 0.0, -1.65,
+                    -pi/4, 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
@@ -260,86 +260,92 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    pi/2, 0.0, -1.6,
-                    0.0, 0.0, 1.6)
+                    pi/2, 0.0, -1.65,
+                    0.0, 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.input_state == 1:
-                    self.transition_state('config_2')
-
-            case('config_2'):
-                self.publishMDState(11)
-                self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
-                self.move_arms_to_joint_position(
-                    3*pi/2, 0.0, -1.6,
-                    pi/4., 0.0, 1.6)
-
-                # State transition
-                if not self.offboard and not self.dry_test:
-                    self.transition_state('emergency')
-                elif self.input_state == 1:
-                    self.transition_state('config_2')
+                    self.transition_state('config_3')
 
             case('config_3'):
                 self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    0.0, 0.0, -1.6,
-                    -pi/2, 0.0, 1.6)
+                    3*pi/2, 0.0, -1.65,
+                    pi/4., 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.input_state == 1:
-                    self.transition_state('config_3')
+                    self.transition_state('config_4')
 
             case('config_4'):
                 self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    -pi/4., 0.0, -1.6,
-                    -3*pi/4., 0.0, 1.6)
-
-            case('config_5'):
-                self.publishMDState(11)
-                self.publishOffboardPositionMode()
-                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
-                self.move_arms_to_joint_position(
-                    -pi/2., 0.0, -1.6,
-                    -pi, 0.0, 1.6)
+                    0.0, 0.0, -1.65,
+                    -pi/2, 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.input_state == 1:
-                    self.transition_state('config_3')
+                    self.transition_state('config_5')
 
             case('config_5'):
                 self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    3*pi/4., 0.0, -1.6,
-                    -3*pi/4., 0.0, 1.6)
+                    -pi/4., 0.0, -1.65,
+                    -3*pi/4., 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
                 elif self.input_state == 1:
-                    self.transition_state('config_3')
+                    self.transition_state('config_6')
 
-            case('config_5'):
+            case('config_6'):
                 self.publishMDState(11)
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    3*pi/4., 0.0, 1.6,
-                    -3*pi/4., 0.0, -1.6)
+                    pi, 0.0, 1.65,
+                    -pi/2., 0.0, -1.65)
+
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.input_state == 1:
+                    self.transition_state('config_7')
+
+            case('config_7'):
+                self.publishMDState(11)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
+                self.move_arms_to_joint_position(
+                    3*pi/4., 0.0, 1.65,
+                    -3*pi/4., 0.0, -1.65)
+
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif self.input_state == 1:
+                    self.transition_state('config_8')
+
+            case('config_8'):
+                self.publishMDState(11)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
+                self.move_arms_to_joint_position(
+                    pi/2., 0.0, 1.65,
+                    -pi, 0.0, -1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:

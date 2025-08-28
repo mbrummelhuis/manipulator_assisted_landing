@@ -56,10 +56,10 @@ class LandingPlanner(Node):
         self.body_position = None
         self.body_heading = None
         self.landing = False
-        self.horizontal_leg_man_distance = 0.27
-        self.x_manipulator_distance = 0.12
-        self.y_manipulator_distance = 0.4
-        self.leg_z = 0.12
+        self.horizontal_leg_man_distance = 0.19
+        self.x_manipulator_distance = 0.16
+        self.y_manipulator_distance = 0.45
+        self.leg_z = 0.11
 
     def contact_point_callback(self, msg):
         """
@@ -181,7 +181,7 @@ class LandingPlanner(Node):
         self.publish_landing_point(landing_point, heading)
 
         # Calculate end-effector desired locations in body frame
-        manipulator_body_z = self.leg_z + self.horizontal_leg_man_distance*np.tan(self.calculate_surface_incline(self.normal_world))
+        manipulator_body_z = self.leg_z + (self.horizontal_leg_man_distance+self.x_manipulator_distance)*np.tan(self.calculate_surface_incline(self.normal_world))
         arm1_ee_position_body = np.array([self.x_manipulator_distance, self.y_manipulator_distance, manipulator_body_z])
         arm2_ee_position_body = np.array([self.x_manipulator_distance, -self.y_manipulator_distance, manipulator_body_z])
 
