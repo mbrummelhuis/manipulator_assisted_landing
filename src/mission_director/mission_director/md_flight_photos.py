@@ -104,6 +104,7 @@ class MissionDirectorPy(Node):
         self.arm_2_positions = np.array([0.0, 0.0, 0.0])
         self.arm_2_velocities = np.array([0.0, 0.0, 0.0])
         self.arm_2_effort = np.array([0.0, 0.0, 0.0])
+        self.picture_time = 13.
 
         self.arm_1_nominal = np.array([0.0, 0.53, -0.1]) # Nominal XYZ posiiton in FRD body frame. Make Y larger than L1 + L2, for downwards
         #self.arm_1_nominal = np.array([0.0, 0.53, -0.35]) # For upwards probing
@@ -246,7 +247,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_2')
 
             case('config_2'):
@@ -260,7 +261,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_3')
 
             case('config_3'):
@@ -268,13 +269,13 @@ class MissionDirectorPy(Node):
                 self.publishOffboardPositionMode()
                 self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
                 self.move_arms_to_joint_position(
-                    3*pi/2, 0.0, -1.65,
+                    3*pi/4, 0.0, -1.65,
                     pi/4., 0.0, 1.65)
 
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_4')
 
             case('config_4'):
@@ -288,7 +289,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_5')
 
             case('config_5'):
@@ -302,7 +303,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_6')
 
             case('config_6'):
@@ -316,7 +317,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_7')
 
             case('config_7'):
@@ -330,7 +331,7 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
                     self.transition_state('config_8')
 
             case('config_8'):
@@ -344,8 +345,22 @@ class MissionDirectorPy(Node):
                 # State transition
                 if not self.offboard and not self.dry_test:
                     self.transition_state('emergency')
-                elif self.input_state == 1:
-                    self.transition_state('config_3')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
+                    self.transition_state('pre_land')
+
+            case('pre_land'):
+                self.publishMDState(19)
+                self.publishOffboardPositionMode()
+                self.publishTrajectoryPositionSetpoint(self.x_setpoint, self.y_setpoint, self.takeoff_altitude, self.heading_setpoint)
+                self.move_arms_to_joint_position(
+                    pi/2, 0.0, -1.82,
+                    -pi/2, 0.0, 1.82)
+
+                # State transition
+                if not self.offboard and not self.dry_test:
+                    self.transition_state('emergency')
+                elif (datetime.datetime.now() - self.state_start_time).seconds > self.picture_time or self.input_state == 1:
+                    self.transition_state('land')        
 
             case('land'):
                 self.publishMDState(22)

@@ -11,7 +11,7 @@ Launch simulation with one arm.
 
 The package can be launched with 'ros2 launch ats_bringup gz_sim_one_arm.launch.py'
 """
-logging = True
+logging = False
 major_frequency = 50.
 md_name = 'mission_director_photos'
 probing_direction_body = [0., 0., 1.]
@@ -78,7 +78,7 @@ def generate_launch_description():
         parameters=[
             {'frequency': major_frequency},
             {'position_clip': 3.0},
-            {'takeoff_altitude': -1.4},
+            {'takeoff_altitude': -1.1},
             {'probing_speed': 0.05}, # 
             {'probing_direction': probing_direction_body}
         ],
